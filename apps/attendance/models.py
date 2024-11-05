@@ -12,4 +12,4 @@ class Attendance(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.student}- {self.schedule} - {self.status} - {self.id}"
+        return f"{self.student}- {self.schedule} - {self.status} -id- {self.id}"

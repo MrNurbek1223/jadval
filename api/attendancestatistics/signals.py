@@ -6,14 +6,12 @@ from apps.attendancestatistics.models import AttendanceStatistics
 
 @receiver(post_save, sender=Attendance)
 def update_statistics(sender, instance, **kwargs):
-    """Davomat o'zgarganda yoki yangi yozuv qo'shilganda statistikani yangilash"""
-    # Talabaning fan bo'yicha statistikasi
     attendance_stat, created = AttendanceStatistics.objects.get_or_create(
         student=instance.student,
         subject=instance.schedule.subject,
-        semester="2024-bahor"  # Semestrni kerakli formatda kiriting yoki dinamik oling
+        semester="2024-bahor"
     )
 
     # Statistikalarni yangilash
-    attendance_stat.update_statistics()  # total_classes va attended_classes qiymatlari bilan yangilaydi
+    attendance_stat.update_statistics()
 
