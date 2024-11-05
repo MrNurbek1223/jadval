@@ -11,7 +11,5 @@ def update_statistics(sender, instance, **kwargs):
         subject=instance.schedule.subject,
         semester="2024-bahor"
     )
-
-    # Statistikalarni yangilash
     attendance_stat.update_statistics()
 

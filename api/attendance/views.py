@@ -1,5 +1,4 @@
 from datetime import timedelta
-from django.template.defaulttags import now
 from rest_framework import viewsets
 from api.attendance.serializer import AttendanceSerializer
 from api.user.permission import IsTeacherUser

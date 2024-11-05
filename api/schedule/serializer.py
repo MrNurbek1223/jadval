@@ -6,4 +6,4 @@ from apps.schedule.models import ClassSchedule
 class ClassScheduleSerializer(serializers.ModelSerializer):
     class Meta:
         model = ClassSchedule
-        fields = '__all__'
+        fields = ['id', 'subject', 'teacher', 'start_time', 'end_time']
