@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from apps.group.models import Group
 from apps.user.models import User
 
 
@@ -21,27 +23,30 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, min_length=8)
-    password_confirm = serializers.CharField(write_only=True, required=True, min_length=8)
+    password = serializers.CharField(write_only=True, min_length=8)
+    password_confirm = serializers.CharField(write_only=True, min_length=8)
+    role = serializers.ChoiceField(choices=User.ROLE_CHOICES)
+    group = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), required=False)
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password', 'password_confirm')
+        fields = ('username', 'email', 'password', 'password_confirm', 'role', 'group')
 
     def validate(self, data):
-
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError("Passwords do not match.")
+        if data['role'] == 'student' and not data.get('group'):
+            raise serializers.ValidationError("Student uchun group maydoni kiritilishi kerak.")
+        if data['role'] != 'student' and data.get('group'):
+            raise serializers.ValidationError("Faqat studentlar uchun group maydoni kiritilishi mumkin.")
         return data
 
     def create(self, validated_data):
         validated_data.pop('password_confirm')
-        user = User(
-            username=validated_data['username'],
-            email=validated_data['email']
-        )
-        user.set_password(validated_data['password'])
-        user.save()
+        group = validated_data.pop('group', None)
+        user = User.objects.create_user(**validated_data)
+        if group and user.role == 'student':
+            group.students.add(user)
         return user
 
 

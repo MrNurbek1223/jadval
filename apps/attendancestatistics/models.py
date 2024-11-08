@@ -10,8 +10,8 @@ class AttendanceStatistics(models.Model):
     student = models.ForeignKey(User, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
     semester = models.CharField(max_length=10)
-    total_classes = models.PositiveIntegerField(default=0)  # Dastlabki qiymat
-    attended_classes = models.PositiveIntegerField(default=0)  # Dastlabki qiymat
+    total_classes = models.PositiveIntegerField(default=0)
+    attended_classes = models.PositiveIntegerField(default=0)
     monthly_statistics = models.JSONField(blank=True, null=True)
     weekly_statistics = models.JSONField(blank=True, null=True)
     daily_statistics = models.JSONField(blank=True, null=True)

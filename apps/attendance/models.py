@@ -1,5 +1,6 @@
 from django.db import models
-from apps.schedule.models import ClassSchedule
+
+from apps.classschedule.models import ClassSchedule
 from apps.user.models import User
 
 

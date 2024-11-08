@@ -28,9 +28,11 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'apps.user',
     'apps.subject',
-    'apps.schedule',
     'apps.attendance',
     'apps.attendancestatistics',
+    'apps.classschedule',
+    'apps.group',
+    'apps.room',
 ]
 
 MIDDLEWARE = [
