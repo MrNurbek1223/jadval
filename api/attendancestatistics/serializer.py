@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.attendancestatistics.models import AttendanceStatistics
+
 
 
 class AttendanceStatisticsSerializer(serializers.ModelSerializer):

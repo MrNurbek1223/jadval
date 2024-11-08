@@ -29,7 +29,6 @@ INSTALLED_APPS = [
     'apps.user',
     'apps.subject',
     'apps.attendance',
-    'apps.attendancestatistics',
     'apps.classschedule',
     'apps.group',
     'apps.room',
