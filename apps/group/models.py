@@ -6,7 +6,5 @@ class Group(models.Model):
     students = models.ManyToManyField(AUTH_USER_MODEL, limit_choices_to={'role': 'student'},
                                       related_name='student_groups')
 
-
-
     def __str__(self):
-        return str(self.id) if self.id else "Yangi guruh (hali saqlanmagan)"
+        return str(self.id)
