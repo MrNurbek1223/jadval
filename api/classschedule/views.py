@@ -1,4 +1,4 @@
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from api.classschedule.filter import ClassScheduleFilter
 from api.classschedule.pagination import StandardResultsSetPagination
 from api.classschedule.serializer import ClassScheduleSerializer
@@ -18,8 +18,15 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
     search_fields = ['subject__name', 'teacher__username', 'room__name']
     permission_classes = [IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = [AllowAny]
+        else:
+            self.permission_classes = [IsAuthenticated]
+        return super().get_permissions()
+
     def get_queryset(self):
-        return super().get_queryset()
+        return super().get_queryset().order_by('day_of_week')
 
     def perform_create(self, serializer):
         if self.request.user.role != 'admin':

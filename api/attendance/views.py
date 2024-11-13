@@ -1,7 +1,5 @@
 from rest_framework import viewsets, status
 from rest_framework.exceptions import PermissionDenied
-
-
 from api.attendance.serializer import AttendanceCreateSerializer, AttendanceUpdateSerializer
 from apps.attendance.models import Attendance
 from rest_framework.permissions import IsAuthenticated

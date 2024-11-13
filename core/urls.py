@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 from api.attendance.views import AttendanceViewSet
 from api.attendancestatistics.views import AttendanceStatisticsView
 from api.classschedule.views import ClassScheduleViewSet
+from api.group.views import GroupViewSet
 from api.subject.views import SubjectViewSet
 from api.user.views import RegisterView, LoginView
 
@@ -12,6 +13,7 @@ router = DefaultRouter()
 router.register(r'subjects', SubjectViewSet)
 router.register(r'attendance', AttendanceViewSet, basename='attendance')
 router.register(r'schedules', ClassScheduleViewSet, basename='classschedule')
+router.register(r'groups', GroupViewSet, basename='group')
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
