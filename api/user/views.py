@@ -1,11 +1,12 @@
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from api.user.serializer import UserSerializer, RegisterSerializer, CustomTokenObtainPairSerializer
+from api.user.serializer import UserSerializer, RegisterSerializer, CustomTokenObtainPairSerializer, TeacherSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-
-
+from rest_framework import viewsets
+from apps.user.models import User
 
 
 class RegisterView(APIView):
@@ -25,3 +26,10 @@ class RegisterView(APIView):
 
 class LoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+
+
+class TeacherViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnlyModelViewSet allows only GET requests by default
+    queryset = User.objects.filter(role='teacher')  # Filter only teachers
+    serializer_class = TeacherSerializer
+    permission_classes = [AllowAny]

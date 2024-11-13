@@ -70,3 +70,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         attrs['user'] = user
         return super().validate(attrs)
+
+
+class TeacherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']
