@@ -3,6 +3,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from api.user.pagination import UserPagination
 from api.user.serializer import UserSerializer, RegisterSerializer, CustomTokenObtainPairSerializer, TeacherSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import viewsets
@@ -29,7 +31,8 @@ class LoginView(TokenObtainPairView):
 
 
 
-class TeacherViewSet(viewsets.ReadOnlyModelViewSet):  # ReadOnlyModelViewSet allows only GET requests by default
-    queryset = User.objects.filter(role='teacher')  # Filter only teachers
+class TeacherViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = User.objects.filter(role='teacher')
     serializer_class = TeacherSerializer
     permission_classes = [AllowAny]
+    pagination_class = UserPagination
