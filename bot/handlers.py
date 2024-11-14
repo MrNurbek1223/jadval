@@ -11,10 +11,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("View Rooms", callback_data="view_rooms")],
         [InlineKeyboardButton("View Subjects", callback_data="view_subjects")],
     ]
-    await update.message.reply_text(
-        "Welcome! Choose an option:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if update.message:
+        await update.message.reply_text("Welcome! Choose an option:", reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.edit_message_text("Welcome! Choose an option:", reply_markup=reply_markup)
+
+
+async def go_back(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await start(update, context)
 
 
 async def get_groups(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -43,10 +49,13 @@ async def fetch_and_display_options(update: Update, endpoint: str, prompt: str, 
         items = response.json()
 
         keyboard = [
-            [InlineKeyboardButton(item.get("name", item.get("username", "Unnamed")),
-                                  callback_data=f"{callback_prefix}_{item['id']}")]
-            for item in items
+            [InlineKeyboardButton(
+                item.get("name", item.get("username", "Unnamed")),
+                callback_data=f"{callback_prefix}_{item['id']}"
+            )] for item in items
         ]
+        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+
         await query.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup(keyboard)) if items else \
             await query.edit_message_text(f"No {endpoint} available.")
 

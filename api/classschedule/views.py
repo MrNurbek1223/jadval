@@ -26,7 +26,7 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        return super().get_queryset().order_by('day_of_week')
+        return super().get_queryset().order_by('start_time','day_of_week')
 
     def perform_create(self, serializer):
         if self.request.user.role != 'admin':

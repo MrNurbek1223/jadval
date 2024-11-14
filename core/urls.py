@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-
 from api.attendance.views import AttendanceViewSet
 from api.attendancestatistics.views import AttendanceStatisticsView
 from api.classschedule.views import ClassScheduleViewSet
