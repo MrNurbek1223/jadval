@@ -22,6 +22,7 @@ async def fetch_and_display_options(update, endpoint, prompt, callback_prefix, p
     await query.answer()
 
     url = page_url if page_url else f"{BASE_URL}/{endpoint}/"
+    print(url, 'urlllllllllllllll')
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
@@ -38,7 +39,6 @@ async def fetch_and_display_options(update, endpoint, prompt, callback_prefix, p
         ]
         keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
-        # Pagination buttons
         pagination_buttons = []
         if previous_page:
             pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data=f"paginate_{endpoint}_prev"))
@@ -61,7 +61,6 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
     action, endpoint, direction = query.data.split("_")
     current_url = context.user_data.get(f"{endpoint}_url", f"{BASE_URL}/{endpoint}/")
 
-    # Fetch the new page
     response = requests.get(current_url)
     if response.status_code == 200:
         data = response.json()
@@ -71,7 +70,8 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
         new_url = next_page if direction == "next" else previous_page
         if new_url:
             context.user_data[f"{endpoint}_url"] = new_url
-            await fetch_and_display_options(update, endpoint, f"{endpoint.capitalize()} tanlang:", endpoint, page_url=new_url)
+            await fetch_and_display_options(update, endpoint, f"{endpoint.capitalize()} tanlang:", endpoint,
+                                            page_url=new_url)
         else:
             await query.edit_message_text("Boshqa sahifalar yo'q.", reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]]
@@ -86,6 +86,7 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
     filter_type, filter_id = query.data.split("_")
     url = f"{BASE_URL}/schedules/?{filter_type}={filter_id}"
+    print(url, '2222222urlllllllllllll')
     response = requests.get(url)
     if response.status_code == 200:
         schedules = response.json().get("results", [])
@@ -127,4 +128,3 @@ async def get_subjects(update, context: ContextTypes.DEFAULT_TYPE):
 
 async def go_back(update, context: ContextTypes.DEFAULT_TYPE):
     await start(update, context)
-
