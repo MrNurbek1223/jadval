@@ -64,7 +64,6 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
                 for schedule in schedules
             )
 
-            # Tugmalarni tartibga solish
             pagination_buttons = []
             if data.get("previous"):
                 pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="schedules_previous"))

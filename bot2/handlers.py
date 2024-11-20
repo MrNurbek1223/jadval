@@ -4,17 +4,30 @@ import requests
 from config import BASE_URL
 
 
+
 async def start(update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("Davomat qilish", callback_data="attendance"),
+         InlineKeyboardButton("Dars jadvali", callback_data="view_schedule")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await (update.message.reply_text if update.message else update.callback_query.edit_message_text)(
+        "Xush kelibsiz! Quyidagi opsiyalardan birini tanlang:", reply_markup=reply_markup
+    )
+
+async def view_schedule(update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Guruhlar", callback_data="view_groups"),
          InlineKeyboardButton("O'qituvchilar", callback_data="view_teachers")],
         [InlineKeyboardButton("Xonalar", callback_data="view_rooms"),
          InlineKeyboardButton("Fanlar", callback_data="view_subject")],
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back_to_start")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await (update.message.reply_text if update.message else update.callback_query.edit_message_text)(
-        "Xush kelibsiz! Biror opsiyani tanlang:", reply_markup=reply_markup
-    )
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text("Dars jadvali bo'yicha opsiyalardan birini tanlang:", reply_markup=reply_markup)
+
 
 
 async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix,
@@ -87,8 +100,6 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
                 f"Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
                 for schedule in schedules
             )
-
-            # Tugmalarni tartibga solish
             pagination_buttons = []
             if data.get("previous"):
                 pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="schedules_previous"))
