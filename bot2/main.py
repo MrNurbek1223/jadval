@@ -1,7 +1,8 @@
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler ,MessageHandler, filters
 from bot2.paginations import paginate_schedules, paginate
 from config import TOKEN
-from handlers import start, display_schedule, get_groups, get_teachers, get_rooms, get_subject, go_back, view_schedule
+from handlers import start, display_schedule, get_groups, get_teachers, get_rooms, get_subject, go_back, view_schedule, \
+    attendance_handler, handle_login_credentials
 
 
 def main():
@@ -18,6 +19,9 @@ def main():
     app.add_handler(CallbackQueryHandler(display_schedule, pattern="^(group|teacher|room|subject)_"))
     app.add_handler(CallbackQueryHandler(go_back, pattern="^go_back$"))
     app.add_handler(CallbackQueryHandler(paginate, pattern="^paginate_.*"))
+    app.add_handler(CallbackQueryHandler(attendance_handler, pattern="^attendance$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login_credentials))
+
 
     app.run_polling()
 

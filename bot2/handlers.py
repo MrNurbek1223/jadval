@@ -1,8 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import requests
-from config import BASE_URL
-
+from config import BASE_URL, SCHEDULES_URL, LOGIN_URL
 
 
 async def start(update, context: ContextTypes.DEFAULT_TYPE):
@@ -14,6 +13,7 @@ async def start(update, context: ContextTypes.DEFAULT_TYPE):
     await (update.message.reply_text if update.message else update.callback_query.edit_message_text)(
         "Xush kelibsiz! Quyidagi opsiyalardan birini tanlang:", reply_markup=reply_markup
     )
+
 
 async def view_schedule(update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
@@ -28,6 +28,67 @@ async def view_schedule(update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await query.edit_message_text("Dars jadvali bo'yicha opsiyalardan birini tanlang:", reply_markup=reply_markup)
 
+
+async def attendance_handler(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    await query.edit_message_text("Iltimos, email va parolingizni kiriting:\nFormat: email password")
+
+    context.user_data["waiting_for_login"] = True
+
+
+async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("waiting_for_login"):
+        user_input = update.message.text.split()
+        if len(user_input) != 2:
+            await update.message.reply_text("Noto‘g‘ri format. Iltimos, email va parolni qaytadan kiriting.")
+            return
+        email, password = user_input
+
+        response = requests.post(LOGIN_URL, json={"email": email, "password": password})
+        if response.status_code == 200:
+            token_data = response.json()
+            access_token = token_data.get("access", None)
+
+            if access_token:
+                context.user_data["access_token"] = access_token
+                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Dars jadvalini yuklayapman...")
+                await get_teacher_schedule(update, context)
+            else:
+                await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
+        else:
+            await update.message.reply_text("Login xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
+
+        context.user_data["waiting_for_login"] = False
+
+
+async def get_teacher_schedule(update, context: ContextTypes.DEFAULT_TYPE):
+    access_token = context.user_data.get("access_token", None)
+    if not access_token:
+        await update.message.reply_text("Avval tizimga kiring.")
+        return
+
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(SCHEDULES_URL, headers=headers)
+
+    if response.status_code == 200:
+        schedules = response.json().get("results", [])
+        if schedules:
+            schedule_text = "\n\n".join(
+                f"Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
+                f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+                f"Boshlanish: {schedule.get('start_time', 'Noma\'lum')}\n"
+                f"Tugash: {schedule.get('end_time', 'Noma\'lum')}\n"
+                f"Xona: {schedule.get('room', 'Noma\'lum')}\n"
+                f"Ustoz: {schedule.get('teacher', 'Noma\'lum')}"
+                for schedule in schedules
+            )
+            await update.message.reply_text(f"Sizning dars jadvalingiz:\n\n{schedule_text}")
+        else:
+            await update.message.reply_text("Jadval topilmadi.")
+    else:
+        await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
 
 
 async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix,
@@ -72,8 +133,6 @@ async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, 
         await query.edit_message_text("Ma'lumotlarni yuklashda xatolik yuz berdi.")
 
 
-
-
 async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -93,6 +152,7 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
                 f"Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
                 f"Boshlanish: {schedule.get('start_time', 'Noma\'lum')}\n"
                 f"Tugash: {schedule.get('end_time', 'Noma\'lum')}\n"
+                f"Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
                 f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
                 f"Xona: {schedule.get('room', 'Noma\'lum')}\n"
                 f"Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
@@ -118,19 +178,16 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Jadvalni olishda xatolik yuz berdi.")
 
 
-
-
-
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update,context, "groups", "Guruhni tanlang:", "group")
+    await fetch_and_display_options(update, context, "groups", "Guruhni tanlang:", "group")
 
 
 async def get_teachers(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update,context, "teachers", "O'qituvchini tanlang:", "teacher")
+    await fetch_and_display_options(update, context, "teachers", "O'qituvchini tanlang:", "teacher")
 
 
 async def get_rooms(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update,context, "rooms", "Xonani tanlang:", "room")
+    await fetch_and_display_options(update, context, "rooms", "Xonani tanlang:", "room")
 
 
 async def get_subject(update, context: ContextTypes.DEFAULT_TYPE):
