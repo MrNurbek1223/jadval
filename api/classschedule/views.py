@@ -42,3 +42,14 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
         if self.request.user.role != 'admin':
             raise PermissionDenied("Faqat admin foydalanuvchilar yozuvni o'chira oladi.")
         instance.delete()
+
+
+class TeacherClassScheduleViewSet(viewsets.ModelViewSet):
+    serializer_class = ClassScheduleSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role != 'teacher':
+            return ClassSchedule.objects.none()
+        return ClassSchedule.objects.filter(teacher=user).order_by('start_time', 'day_of_week')

@@ -59,7 +59,7 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
                 f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
                 f"Xona: {schedule.get('room', 'Noma\'lum')}\n"
                 f"Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
-                f"(Xona raqami: {schedule.get('room_number', 'N/A')})\n"
+                f"Xona raqami: {schedule.get('room_number', 'N/A')}\n"
                 f"Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
                 for schedule in schedules
             )

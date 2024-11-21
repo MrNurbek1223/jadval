@@ -3,7 +3,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from api.attendance.views import AttendanceViewSet
 from api.attendancestatistics.views import AttendanceStatisticsView
-from api.classschedule.views import ClassScheduleViewSet
+from api.classschedule.views import ClassScheduleViewSet, TeacherClassScheduleViewSet
 from api.group.views import GroupViewSet
 from api.room.views import RoomViewSet
 from api.subject.views import SubjectViewSet
@@ -16,6 +16,7 @@ router.register(r'schedules', ClassScheduleViewSet, basename='classschedule')
 router.register(r'groups', GroupViewSet, basename='group')
 router.register(r'teachers', TeacherViewSet, basename='teacher')
 router.register(r'rooms', RoomViewSet, basename='room')
+router.register(r'teacher/schedules', TeacherClassScheduleViewSet, basename='teacher-schedules')
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
