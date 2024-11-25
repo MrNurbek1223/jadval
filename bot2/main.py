@@ -10,6 +10,9 @@ def main():
 
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+
+
+
     app.add_handler(CallbackQueryHandler(start, pattern="^go_back_to_start$"))
     app.add_handler(CallbackQueryHandler(view_schedule, pattern="^view_schedule$"))
     app.add_handler(CallbackQueryHandler(get_groups, pattern="^view_groups"))
@@ -25,6 +28,7 @@ def main():
 
     app.add_handler(CallbackQueryHandler(get_schedule_groups, pattern="^schedule_"))
     app.add_handler(CallbackQueryHandler(get_group_students, pattern="^attendance_group_"))
+
 
     app.add_handler(CallbackQueryHandler(toggle_student, pattern="^toggle_"))
     app.add_handler(CallbackQueryHandler(confirm_attendance, pattern="^confirm_attendance$"))

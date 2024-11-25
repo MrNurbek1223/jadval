@@ -31,11 +31,27 @@ async def view_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
 async def attendance_handler(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer()
+    if query:
+        await query.answer()
 
-    await query.edit_message_text("Iltimos, email va parolingizni kiriting:\nFormat: email password")
+        access_token = context.user_data.get("access_token")
+        if access_token:
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = requests.get(SCHEDULES_URL, headers=headers)
 
-    context.user_data["waiting_for_login"] = True
+            if response.status_code == 401:
+                await query.edit_message_text("Token eskirgan. Iltimos, qayta login qiling.\nFormat: email password")
+                context.user_data.pop("access_token", None)
+                context.user_data.pop("email", None)
+                context.user_data["waiting_for_login"] = True
+                return
+            elif response.status_code == 200:
+                await query.edit_message_text("Davomat qilish jarayoniga o‘tayapman...")
+                await get_teacher_schedule(update, context)
+                return
+
+        await query.edit_message_text("Iltimos, email va parolingizni kiriting:\nFormat: email password")
+        context.user_data["waiting_for_login"] = True
 
 
 async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,6 +62,7 @@ async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
             return
         email, password = user_input
 
+
         response = requests.post(LOGIN_URL, json={"email": email, "password": password})
         if response.status_code == 200:
             token_data = response.json()
@@ -53,7 +70,8 @@ async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
 
             if access_token:
                 context.user_data["access_token"] = access_token
-                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Dars jadvalini yuklayapman...")
+                context.user_data["email"] = email
+                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Davomat qilishga o‘tayapman...")
                 await get_teacher_schedule(update, context)
             else:
                 await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
@@ -64,35 +82,84 @@ async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def get_teacher_schedule(update, context):
+    """
+    Teacher uchun dars jadvalini qaytaradi va paginatsiya qo‘llab-quvvatlanadi.
+    """
     access_token = context.user_data.get("access_token", None)
     if not access_token:
-        await update.message.reply_text("Avval tizimga kiring.")
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Avval tizimga kiring.")
+        elif update.message:
+            await update.message.reply_text("Avval tizimga kiring.")
         return
 
+    # Paginatsiya uchun URL ni olish
+    page_url = context.user_data.get("current_schedule_page", SCHEDULES_URL)
     headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(SCHEDULES_URL, headers=headers)
+    response = requests.get(page_url, headers=headers)
+
+    if response.status_code == 401:  # Token eskirgan bo‘lsa
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Token eskirgan. Iltimos, qayta login qiling.")
+        elif update.message:
+            await update.message.reply_text("Token eskirgan. Iltimos, qayta login qiling.")
+        context.user_data.pop("access_token", None)
+        context.user_data.pop("email", None)
+        context.user_data["waiting_for_login"] = True
+        return
 
     if response.status_code == 200:
-        schedules = response.json().get("results", [])
-        if schedules:
+        data = response.json()
+        schedules = data.get("results", [])
+        next_page = data.get("next", None)
+        previous_page = data.get("previous", None)
 
-            keyboard = [
-                [InlineKeyboardButton(
-                    f"{schedule.get('day_of_week', 'Noma\'lum')}\n"
-                    f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
-                    f"Vaqt: {schedule.get('start_time', 'Noma\'lum')} - {schedule.get('end_time', 'Noma\'lum')}\n"
-                    f"Xona: {schedule.get('room', 'Noma\'lum')} ({schedule.get('room_number', 'N/A')})",
-                    callback_data=f"schedule_{schedule['id']}"
-                )]
-                for schedule in schedules
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+        # Jadvalni matn shaklida tayyorlash
+        schedule_text = "\n\n".join(
+            f"{idx + 1}. 📅 Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
+            f"   🕒 Vaqt: {schedule.get('start_time', 'Noma\'lum')} - {schedule.get('end_time', 'Noma\'lum')}\n"
+            f"   🎓 Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+            f"   🏫 Xona: {schedule.get('room', 'Noma\'lum')} ({schedule.get('room_number', 'N/A')})\n"
+            f"   👥 Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}"
+            for idx, schedule in enumerate(schedules)
+        )
 
-            await update.message.reply_text("Sizning dars jadvalingizni tanlang:", reply_markup=reply_markup)
-        else:
-            await update.message.reply_text("Jadval topilmadi.")
+        # Knopkalarni yaratish (4 qatorli formatda)
+        schedule_buttons = [
+            InlineKeyboardButton(f"{idx + 1}", callback_data=f"schedule_{schedule['id']}")
+            for idx, schedule in enumerate(schedules)
+        ]
+        formatted_buttons = [schedule_buttons[i:i + 4] for i in range(0, len(schedule_buttons), 4)]
+
+        # Paginatsiya tugmalarini qo‘shish
+        pagination_buttons = []
+        if previous_page:
+            pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="schedules_previous"))
+            context.user_data["previous_schedule_page"] = previous_page
+        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="go_back"))
+        if next_page:
+            pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data="schedules_next"))
+            context.user_data["next_schedule_page"] = next_page
+        formatted_buttons.append(pagination_buttons)
+
+        # Javobni tugmalar bilan qaytarish
+        reply_markup = InlineKeyboardMarkup(formatted_buttons)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                f"Dars jadvallari:\n\n{schedule_text}", reply_markup=reply_markup
+            )
+        elif update.message:
+            await update.message.reply_text(f"Dars jadvallari:\n\n{schedule_text}", reply_markup=reply_markup)
     else:
-        await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Jadvalni olishda xatolik yuz berdi.")
+        elif update.message:
+            await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
+
+
+
+
+
 
 
 async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix,
