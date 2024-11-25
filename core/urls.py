@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from api.attendance.views import AttendanceViewSet
 from api.attendancestatistics.views import AttendanceStatisticsView
 from api.classschedule.views import ClassScheduleViewSet, TeacherClassScheduleViewSet
-from api.group.views import GroupViewSet
+from api.group.views import GroupViewSet, ClassScheduleGroupsAPIView
 from api.room.views import RoomViewSet
 from api.subject.views import SubjectViewSet
 from api.user.views import RegisterView, LoginView, TeacherViewSet
@@ -24,4 +24,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('attendance-statistics/', AttendanceStatisticsView.as_view(), name='attendance_statistics'),
     path('', include(router.urls)),
+    path('schedule/<int:class_schedule_id>/groups/', ClassScheduleGroupsAPIView.as_view(),
+         name='schedule-groups'),
 ]

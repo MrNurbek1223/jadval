@@ -11,3 +11,7 @@ class GroupSerializer(serializers.ModelSerializer):
 
 
 
+class GroupSerializerS(serializers.ModelSerializer):
+    class Meta:
+        model = Group
+        fields = ['id', 'name', 'students']
