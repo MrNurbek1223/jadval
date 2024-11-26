@@ -9,12 +9,17 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    action, endpoint, direction = query.data.split("_")
-    current_url = context.user_data.get(f"{endpoint}_{direction}")
+    try:
+        action, endpoint, direction = query.data.split("_")
+    except ValueError:
+        await query.edit_message_text("Xatolik yuz berdi. Tugma ma'lumotlari noto‘g‘ri.")
+        return
 
+    current_url = context.user_data.get(f"{endpoint}_{direction}")
     if not current_url:
         await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.")
         return
+
 
     response = requests.get(current_url)
     if response.status_code == 200:
@@ -22,15 +27,23 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
         next_page = data.get("next", None)
         previous_page = data.get("previous", None)
 
-        if next_page:
-            context.user_data[f"{endpoint}_next"] = next_page
-        if previous_page:
-            context.user_data[f"{endpoint}_previous"] = previous_page
 
-        await fetch_and_display_options(update, context, endpoint, f"{endpoint.capitalize()} tanlang:", endpoint,
-                                        page_url=current_url)
+        context.user_data[f"{endpoint}_next"] = next_page
+        context.user_data[f"{endpoint}_previous"] = previous_page
+
+
+        await fetch_and_display_options(
+            update,
+            context,
+            endpoint=endpoint,
+            prompt=f"{endpoint.capitalize()} tanlang:",
+            callback_prefix=f"view_{endpoint}",
+            page_url=current_url,
+        )
     else:
         await query.edit_message_text("Xatolik yuz berdi. Ma'lumotlarni yuklab bo'lmadi.")
+
+
 
 
 async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):

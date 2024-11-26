@@ -18,12 +18,14 @@ def main():
     app.add_handler(CallbackQueryHandler(get_groups, pattern="^view_groups"))
     app.add_handler(CallbackQueryHandler(get_teachers, pattern="^view_teachers"))
     app.add_handler(CallbackQueryHandler(get_rooms, pattern="^view_rooms"))
+    app.add_handler(CallbackQueryHandler(get_subject, pattern="^view_subject"))
     app.add_handler(CallbackQueryHandler(paginate_schedules, pattern="^schedules_(next|previous)$"))
     app.add_handler(CallbackQueryHandler(paginate_attendance, pattern="^attendance_(next|previous)$"))
-    app.add_handler(CallbackQueryHandler(get_subject, pattern="^view_subject"))
+
     app.add_handler(CallbackQueryHandler(display_schedule, pattern="^(group|teacher|room|subject)_"))
     app.add_handler(CallbackQueryHandler(go_back, pattern="^go_back$"))
-    app.add_handler(CallbackQueryHandler(paginate, pattern="^paginate_.*"))
+    app.add_handler(CallbackQueryHandler(paginate, pattern="^paginate_(teachers|groups|rooms|subject)_(next|previous)$"))
+
     app.add_handler(CallbackQueryHandler(attendance_handler, pattern="^attendance$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login_credentials))
 

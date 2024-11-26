@@ -149,8 +149,7 @@ async def get_teacher_schedule(update, context):
             await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
 
 
-async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix,
-                                    page_url=None):
+async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix, page_url=None):
     query = update.callback_query
     await query.answer()
 
@@ -167,7 +166,10 @@ async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, 
         field = field_map.get(endpoint, "name")
 
         buttons = [
-            InlineKeyboardButton(item.get(field, "Noma'lum"), callback_data=f"{callback_prefix}_{item['id']}")
+            InlineKeyboardButton(
+                item.get(field, "Noma'lum"),
+                callback_data=f"{callback_prefix}_{item['id']}"
+            )
             for item in items
         ]
         keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
@@ -176,19 +178,30 @@ async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, 
         if previous_page:
             context.user_data[f"{endpoint}_previous"] = previous_page
             pagination_buttons.append(
-                InlineKeyboardButton("⬅ Oldingisi", callback_data=f"paginate_{endpoint}_previous"))
+                InlineKeyboardButton("⬅ Oldingisi", callback_data=f"paginate_{endpoint}_previous")
+            )
         if next_page:
             context.user_data[f"{endpoint}_next"] = next_page
-            pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data=f"paginate_{endpoint}_next"))
+            pagination_buttons.append(
+                InlineKeyboardButton("Keyingisi ➡", callback_data=f"paginate_{endpoint}_next")
+            )
 
         if pagination_buttons:
             keyboard.append(pagination_buttons)
 
         keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
 
-        await query.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup(keyboard))
+        new_reply_markup = InlineKeyboardMarkup(keyboard)
+        current_message = query.message.text
+        current_markup = query.message.reply_markup
+
+
+        if current_message != prompt or current_markup != new_reply_markup:
+            await query.edit_message_text(prompt, reply_markup=new_reply_markup)
     else:
         await query.edit_message_text("Ma'lumotlarni yuklashda xatolik yuz berdi.")
+
+
 
 
 async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
@@ -275,12 +288,13 @@ async def get_group_students(update, context):
         students = response.json()
         context.user_data["absent_students"] = []
 
-
         keyboard = []
         for student in students:
             student_buttons = [
-                InlineKeyboardButton(f"{student['username']} - Sababli", callback_data=f"toggle_{student['id']}_reasoned"),
-                InlineKeyboardButton(f"{student['username']} - Sababsiz", callback_data=f"toggle_{student['id']}_unreasoned"),
+                InlineKeyboardButton(f"{student['username']} - Sababli",
+                                     callback_data=f"toggle_{student['id']}_reasoned"),
+                InlineKeyboardButton(f"{student['username']} - Sababsiz",
+                                     callback_data=f"toggle_{student['id']}_unreasoned"),
             ]
             keyboard.append(student_buttons)
 
@@ -292,7 +306,6 @@ async def get_group_students(update, context):
         await query.edit_message_text("Talabalarni yuklashda xatolik yuz berdi.")
 
 
-
 async def toggle_student(update, context):
     query = update.callback_query
     data = query.data.split("_")
@@ -300,7 +313,6 @@ async def toggle_student(update, context):
     reason = data[2] if len(data) > 2 else None
 
     absent_students = context.user_data.get("absent_students", [])
-
 
     existing_student = next((s for s in absent_students if s["student_id"] == student_id), None)
 
@@ -317,9 +329,8 @@ async def toggle_student(update, context):
 
     context.user_data["absent_students"] = absent_students
 
-
-    await query.answer(f"Talaba {'sababli' if reason == 'reasoned' else 'sababsiz' if reason == 'unreasoned' else 'belgilandi'}.")
-
+    await query.answer(
+        f"Talaba {'sababli' if reason == 'reasoned' else 'sababsiz' if reason == 'unreasoned' else 'belgilandi'}.")
 
 
 async def confirm_attendance(update, context):
@@ -352,7 +363,6 @@ async def confirm_attendance(update, context):
     else:
         error_message = response.json().get("detail", "Xatolik yuz berdi.")
         await query.edit_message_text(f"Davomatni saqlashda xatolik yuz berdi: {error_message}")
-
 
 
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):
