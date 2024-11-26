@@ -41,7 +41,7 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
     current_url = context.user_data.get(f"schedules_{direction}")
 
     if not current_url:
-        await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.")
+        await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.1")
         return
 
     response = requests.get(current_url)
@@ -82,3 +82,55 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.edit_message_text("Jadvalni yuklashda xatolik yuz berdi.")
 
+
+async def paginate_attendance(update, context):
+    query = update.callback_query
+    direction = query.data.split("_")[1]
+    page_url = context.user_data.get(f"attendance_{direction}_page")
+
+
+    if not page_url:
+        await query.answer("Sahifa ma'lumotlari mavjud emas.")
+        return
+
+    access_token = context.user_data.get("access_token", None)
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(page_url, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        schedules = data.get("results", [])
+        next_page = data.get("next", None)
+        previous_page = data.get("previous", None)
+
+        context.user_data["attendance_next_page"] = next_page
+        context.user_data["attendance_previous_page"] = previous_page
+
+        schedule_text = "\n\n".join(
+            f"{idx + 1}. 📅 Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
+            f"    🕒 Vaqt: {schedule.get('start_time', 'Noma\'lum')} - {schedule.get('end_time', 'Noma\'lum')}\n"
+            f"    🎓 Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+            f"    🏫 Xona: {schedule.get('room', 'Noma\'lum')} ({schedule.get('room_number', 'N/A')})\n"
+            f"    👥 Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}"
+            for idx, schedule in enumerate(schedules)
+        )
+
+        schedule_buttons = [
+            InlineKeyboardButton(f"{idx + 1}", callback_data=f"schedule_{schedule['id']}")
+            for idx, schedule in enumerate(schedules)
+        ]
+        formatted_buttons = [schedule_buttons[i:i + 4] for i in range(0, len(schedule_buttons), 4)]
+
+        pagination_buttons = []
+        if previous_page:
+            pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="attendance_previous"))
+        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="go_back"))
+        if next_page:
+            pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data="attendance_next"))
+
+        formatted_buttons.append(pagination_buttons)
+
+        reply_markup = InlineKeyboardMarkup(formatted_buttons)
+        await query.edit_message_text(f"Davomat sahifalari:\n\n{schedule_text}", reply_markup=reply_markup)
+    else:
+        await query.edit_message_text("Davomatni olishda xatolik yuz berdi.")

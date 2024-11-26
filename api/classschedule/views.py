@@ -47,6 +47,7 @@ class ClassScheduleViewSet(viewsets.ModelViewSet):
 class TeacherClassScheduleViewSet(viewsets.ModelViewSet):
     serializer_class = ClassScheduleSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
         user = self.request.user
