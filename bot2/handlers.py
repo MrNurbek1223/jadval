@@ -1,3 +1,4 @@
+import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import requests
@@ -149,59 +150,103 @@ async def get_teacher_schedule(update, context):
             await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
 
 
-async def fetch_and_display_options(update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix, page_url=None):
+async def fetch_and_display_options(
+        update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix, page_url=None
+):
+    query = update.callback_query if update.callback_query else None
+    message = update.message if update.message else None
+
+    if query:
+        await query.answer()
+
+    base_url = f"{BASE_URL}/{endpoint}/"
+    url = page_url or context.user_data.get(f"{endpoint}_current", base_url)
+
+    search_query = context.user_data.get(f"{endpoint}_search", None)
+    if search_query and 'search=' not in url:
+        url += f"&search={search_query}" if "?" in url else f"?search={search_query}"
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
+        error_message = f"Ma'lumotlarni yuklashda xatolik yuz berdi: {e}"
+        if query:
+            await query.edit_message_text(error_message)
+        elif message:
+            await message.reply_text(error_message)
+        return
+
+    data = response.json()
+    items = data.get("results", [])
+    next_page = data.get("next", None)
+    previous_page = data.get("previous", None)
+
+    context.user_data[f"{endpoint}_current"] = url
+    context.user_data[f"{endpoint}_next"] = next_page
+    context.user_data[f"{endpoint}_previous"] = previous_page
+
+    field_map = {"teachers": "username", "groups": "name", "rooms": "name", "subject": "name"}
+    field = field_map.get(endpoint, "name")
+
+    buttons = [
+        InlineKeyboardButton(
+            item.get(field, "Noma'lum"),
+            callback_data=f"{callback_prefix}_{item['id']}"
+        )
+        for item in items
+    ]
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+
+    pagination_buttons = []
+    if previous_page:
+        pagination_buttons.append(
+            InlineKeyboardButton("⬅ Oldingisi", callback_data=f"paginate_{endpoint}_previous")
+        )
+    if next_page:
+        pagination_buttons.append(
+            InlineKeyboardButton("Keyingisi ➡", callback_data=f"paginate_{endpoint}_next")
+        )
+    if pagination_buttons:
+        keyboard.append(pagination_buttons)
+
+    keyboard.append([
+        InlineKeyboardButton("🔍 Qidiruv", callback_data=f"search_{endpoint}"),
+        InlineKeyboardButton("❌ Qidiruvni tozalash", callback_data=f"clear_search_{endpoint}")
+    ])
+
+    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if query:
+        await query.edit_message_text(text=prompt, reply_markup=reply_markup)
+    elif message:
+        await message.reply_text(text=prompt, reply_markup=reply_markup)
+
+
+async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    url = page_url if page_url else f"{BASE_URL}/{endpoint}/"
-    response = requests.get(url)
+    try:
+        _, endpoint, direction = query.data.split("_")
+    except ValueError:
+        await query.edit_message_text("Xatolik yuz berdi. Tugma ma'lumotlari noto‘g‘ri.")
+        return
 
-    if response.status_code == 200:
-        data = response.json()
-        items = data.get("results", [])
-        next_page = data.get("next", None)
-        previous_page = data.get("previous", None)
+    current_url = context.user_data.get(f"{endpoint}_{direction}")
+    if not current_url:
+        await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.")
+        return
 
-        field_map = {"teachers": "username", "groups": "name", "rooms": "name", "subject": "name"}
-        field = field_map.get(endpoint, "name")
-
-        buttons = [
-            InlineKeyboardButton(
-                item.get(field, "Noma'lum"),
-                callback_data=f"{callback_prefix}_{item['id']}"
-            )
-            for item in items
-        ]
-        keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
-
-        pagination_buttons = []
-        if previous_page:
-            context.user_data[f"{endpoint}_previous"] = previous_page
-            pagination_buttons.append(
-                InlineKeyboardButton("⬅ Oldingisi", callback_data=f"paginate_{endpoint}_previous")
-            )
-        if next_page:
-            context.user_data[f"{endpoint}_next"] = next_page
-            pagination_buttons.append(
-                InlineKeyboardButton("Keyingisi ➡", callback_data=f"paginate_{endpoint}_next")
-            )
-
-        if pagination_buttons:
-            keyboard.append(pagination_buttons)
-
-        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
-
-        new_reply_markup = InlineKeyboardMarkup(keyboard)
-        current_message = query.message.text
-        current_markup = query.message.reply_markup
-
-
-        if current_message != prompt or current_markup != new_reply_markup:
-            await query.edit_message_text(prompt, reply_markup=new_reply_markup)
-    else:
-        await query.edit_message_text("Ma'lumotlarni yuklashda xatolik yuz berdi.")
-
-
+    await fetch_and_display_options(
+        update=update,
+        context=context,
+        endpoint=endpoint,
+        prompt=f"{endpoint.capitalize()} tanlang:",
+        callback_prefix=f"view_{endpoint}",
+        page_url=current_url
+    )
 
 
 async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
@@ -366,19 +411,19 @@ async def confirm_attendance(update, context):
 
 
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update, context, "groups", "Guruhni tanlang:", "group")
+    await fetch_and_display_options(update, context, "groups", "Groups tanlang:", "group")
 
 
 async def get_teachers(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update, context, "teachers", "O'qituvchini tanlang:", "teacher")
+    await fetch_and_display_options(update, context, "teachers", "Teachers tanlang:", "teacher")
 
 
 async def get_rooms(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update, context, "rooms", "Xonani tanlang:", "room")
+    await fetch_and_display_options(update, context, "rooms", "Rooms tanlang:", "room")
 
 
 async def get_subject(update, context: ContextTypes.DEFAULT_TYPE):
-    await fetch_and_display_options(update, context, "subject", "Fanni tanlang:", "subject")
+    await fetch_and_display_options(update, context, "subject", "Subject tanlang:", "subject")
 
 
 async def go_back(update, context: ContextTypes.DEFAULT_TYPE):

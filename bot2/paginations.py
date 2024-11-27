@@ -1,7 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 import requests
-
 from bot2.handlers import fetch_and_display_options
 
 
@@ -10,38 +9,28 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     try:
-        action, endpoint, direction = query.data.split("_")
+        _, endpoint, direction = query.data.split("_")
     except ValueError:
         await query.edit_message_text("Xatolik yuz berdi. Tugma ma'lumotlari noto‘g‘ri.")
         return
 
+    # Fetch the correct page URL
     current_url = context.user_data.get(f"{endpoint}_{direction}")
     if not current_url:
         await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.")
         return
 
+    # Immediately transition to fetch_and_display_options
+    await fetch_and_display_options(
+        update=update,
+        context=context,
+        endpoint=endpoint,
+        prompt=f"{endpoint.capitalize()} tanlang:",
+        callback_prefix=f"view_{endpoint}",
+        page_url=current_url,
+    )
 
-    response = requests.get(current_url)
-    if response.status_code == 200:
-        data = response.json()
-        next_page = data.get("next", None)
-        previous_page = data.get("previous", None)
 
-
-        context.user_data[f"{endpoint}_next"] = next_page
-        context.user_data[f"{endpoint}_previous"] = previous_page
-
-
-        await fetch_and_display_options(
-            update,
-            context,
-            endpoint=endpoint,
-            prompt=f"{endpoint.capitalize()} tanlang:",
-            callback_prefix=f"view_{endpoint}",
-            page_url=current_url,
-        )
-    else:
-        await query.edit_message_text("Xatolik yuz berdi. Ma'lumotlarni yuklab bo'lmadi.")
 
 
 

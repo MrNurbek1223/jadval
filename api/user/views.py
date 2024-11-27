@@ -3,7 +3,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from rest_framework.filters import SearchFilter
 from api.user.pagination import UserPagination
 from api.user.serializer import UserSerializer, RegisterSerializer, CustomTokenObtainPairSerializer, TeacherSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -36,3 +36,5 @@ class TeacherViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = TeacherSerializer
     permission_classes = [AllowAny]
     pagination_class = UserPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['username']

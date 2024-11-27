@@ -9,12 +9,15 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.exceptions import NotFound
+from rest_framework.filters import SearchFilter
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
     permission_classes = []
     pagination_class = GroupPagination
+    filter_backends = [SearchFilter]
+    search_fields = ['name']
 
     @action(detail=True, methods=['get'], url_path='students')
     def students(self, request, pk=None):
