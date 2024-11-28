@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from apps.attendance.models import Attendance
-from django.utils import timezone
-from datetime import datetime, timedelta
 
 from apps.group.models import Group
 
@@ -33,8 +31,8 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
         if schedule.teacher != user:
             raise ValidationError("You can only mark attendance for your own classes.")
 
-        if Attendance.objects.filter(schedule=schedule).exists():
-            raise ValidationError("Attendance has already been recorded for this class.")
+        if Attendance.objects.filter(schedule=schedule, group=group).exists():
+            raise ValidationError("Attendance has already been recorded for this class and group.")
 
         if timezone.now() > schedule.start_time + timedelta(hours=24):
             raise ValidationError("Attendance can only be marked within 24 hours of the class start time.")
@@ -43,14 +41,11 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         schedule = validated_data['schedule']
-        group_id = self.context['request'].data.get('group')
+        group = validated_data['group']
         absent_students_data = validated_data.pop('absent_students', [])
 
-        if not group_id:
-            raise ValidationError("Group ID is required.")
-
         # Fetch all students in the group
-        group_students = Group.objects.get(id=group_id).students.values_list('id', flat=True)
+        group_students = group.students.values_list('id', flat=True)
 
         absent_students = {absent['student_id']: absent['reason'] for absent in absent_students_data}
 
@@ -61,6 +56,7 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
                     Attendance(
                         student_id=student_id,
                         schedule=schedule,
+                        group=group,
                         status='absent',
                         reason=absent_students[student_id]
                     )
@@ -70,12 +66,14 @@ class AttendanceCreateSerializer(serializers.ModelSerializer):
                     Attendance(
                         student_id=student_id,
                         schedule=schedule,
+                        group=group,
                         status='present'
                     )
                 )
 
         Attendance.objects.bulk_create(attendances)
         return validated_data
+
 
 
 class AttendanceUpdateSerializer(serializers.ModelSerializer):

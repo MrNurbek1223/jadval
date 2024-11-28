@@ -2,6 +2,7 @@ from django.db.models import Count
 from apps.attendance.models import Attendance
 from .utils import get_date_range
 
+
 def get_group_subject_statistics(group_id, subject_id, period):
     start_date, end_date = get_date_range(period)
     attendance_data = Attendance.objects.filter(
@@ -11,6 +12,7 @@ def get_group_subject_statistics(group_id, subject_id, period):
     ).values('status').annotate(count=Count('status'))
 
     return {entry['status']: entry['count'] for entry in attendance_data}
+
 
 def get_group_all_subjects_statistics(group_id, period):
     start_date, end_date = get_date_range(period)
@@ -27,6 +29,7 @@ def get_group_all_subjects_statistics(group_id, period):
         data[subject][entry['status']] = entry['count']
     return data
 
+
 def get_student_all_subjects_statistics(student_id, period):
     start_date, end_date = get_date_range(period)
     attendance_data = Attendance.objects.filter(
@@ -41,6 +44,7 @@ def get_student_all_subjects_statistics(student_id, period):
             data[subject] = {}
         data[subject][entry['status']] = entry['count']
     return data
+
 
 def get_student_subject_statistics(student_id, subject_id, period):
     start_date, end_date = get_date_range(period)
