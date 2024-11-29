@@ -4,14 +4,16 @@ from bot2.search import handle_search_query, search_handler, clear_search_handle
 from config import TOKEN
 from handlers import start, display_schedule, get_groups, get_teachers, get_rooms, get_subject, go_back, view_schedule, \
     attendance_handler, handle_login_credentials, confirm_attendance, toggle_student, \
-    get_schedule_groups, get_group_students, paginate
+    get_schedule_groups, get_group_students, paginate, unified_text_handler
 
 
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login_credentials))
+    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_login_credentials))
+    # app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_search_query))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, unified_text_handler))
 
     app.add_handler(CallbackQueryHandler(start, pattern="^go_back_to_start$"))
     app.add_handler(CallbackQueryHandler(view_schedule, pattern="^view_schedule$"))
@@ -27,7 +29,7 @@ def main():
         CallbackQueryHandler(paginate, pattern="^paginate_(teachers|groups|rooms|subject)_(next|previous)$"))
     app.add_handler(CallbackQueryHandler(attendance_handler, pattern="^attendance$"))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_search_query))
+
     app.add_handler(CallbackQueryHandler(search_handler, pattern="^search_(groups|teachers|rooms|subject)$"))
     app.add_handler(
         CallbackQueryHandler(clear_search_handler, pattern="^clear_search_(groups|teachers|rooms|subject)$"))

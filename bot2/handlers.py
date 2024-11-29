@@ -55,6 +55,59 @@ async def attendance_handler(update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["waiting_for_login"] = True
 
 
+
+from telegram.ext import ContextTypes
+
+async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Foydalanuvchi holatiga qarab matnli kirishni boshqaradi.
+    """
+
+    if context.user_data.get("waiting_for_login"):
+        user_input = update.message.text.split()
+        if len(user_input) != 2:
+            await update.message.reply_text("Noto‘g‘ri format. Iltimos, email va parolni qaytadan kiriting.")
+            return
+        email, password = user_input
+
+        response = requests.post(LOGIN_URL, json={"email": email, "password": password})
+        if response.status_code == 200:
+            token_data = response.json()
+            access_token = token_data.get("access", None)
+
+            if access_token:
+                context.user_data["access_token"] = access_token
+                context.user_data["email"] = email
+                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Davomat qilishga o‘tayapman...")
+                await get_teacher_schedule(update, context)
+            else:
+                await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
+        else:
+            await update.message.reply_text("Login xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
+        context.user_data["waiting_for_login"] = False
+        return
+
+
+    if context.user_data.get("awaiting_search_query"):
+        endpoint = context.user_data.pop("awaiting_search_query")
+        search_query = update.message.text.strip()
+        if not search_query:
+            await update.message.reply_text("Qidiruv so‘rovi bo‘sh bo‘lmasligi kerak. Qaytadan urinib ko‘ring.")
+            return
+
+        context.user_data[f"{endpoint}_search"] = search_query
+        await fetch_and_display_options(
+            update=update,
+            context=context,
+            endpoint=endpoint,
+            prompt=f"{endpoint.capitalize()} natijalari uchun:",
+            callback_prefix=f"view_{endpoint}"
+        )
+        return
+
+
+    await update.message.reply_text("Noto‘g‘ri buyruq yoki holat. Iltimos, qaytadan urinib ko‘ring.")
+
 async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("waiting_for_login"):
         user_input = update.message.text.split()
@@ -153,6 +206,9 @@ async def get_teacher_schedule(update, context):
 async def fetch_and_display_options(
         update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix, page_url=None
 ):
+    """
+    Foydalanuvchiga tanlash uchun opsiyalarni ko'rsatadi va API orqali natijalarni olib keladi.
+    """
     query = update.callback_query if update.callback_query else None
     message = update.message if update.message else None
 
@@ -161,33 +217,42 @@ async def fetch_and_display_options(
 
     base_url = f"{BASE_URL}/{endpoint}/"
     url = page_url or context.user_data.get(f"{endpoint}_current", base_url)
-
     search_query = context.user_data.get(f"{endpoint}_search", None)
+
+
     if search_query and 'search=' not in url:
         url += f"&search={search_query}" if "?" in url else f"?search={search_query}"
 
+
     try:
+
         response = requests.get(url)
         response.raise_for_status()
     except requests.RequestException as e:
         error_message = f"Ma'lumotlarni yuklashda xatolik yuz berdi: {e}"
+
         if query:
             await query.edit_message_text(error_message)
         elif message:
             await message.reply_text(error_message)
         return
 
+
     data = response.json()
+
     items = data.get("results", [])
     next_page = data.get("next", None)
     previous_page = data.get("previous", None)
+
 
     context.user_data[f"{endpoint}_current"] = url
     context.user_data[f"{endpoint}_next"] = next_page
     context.user_data[f"{endpoint}_previous"] = previous_page
 
+
     field_map = {"teachers": "username", "groups": "name", "rooms": "name", "subject": "name"}
     field = field_map.get(endpoint, "name")
+
 
     buttons = [
         InlineKeyboardButton(
@@ -196,6 +261,8 @@ async def fetch_and_display_options(
         )
         for item in items
     ]
+
+
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
     pagination_buttons = []
@@ -210,18 +277,23 @@ async def fetch_and_display_options(
     if pagination_buttons:
         keyboard.append(pagination_buttons)
 
-    keyboard.append([
-        InlineKeyboardButton("🔍 Qidiruv", callback_data=f"search_{endpoint}"),
-        InlineKeyboardButton("❌ Qidiruvni tozalash", callback_data=f"clear_search_{endpoint}")
-    ])
+    search_buttons = [InlineKeyboardButton("🔍 Qidiruv", callback_data=f"search_{endpoint}")]
+    if search_query:
+        search_buttons.append(InlineKeyboardButton("❌ Qidiruvni tozalash", callback_data=f"clear_search_{endpoint}"))
+    keyboard.append(search_buttons)
 
     keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     if query:
         await query.edit_message_text(text=prompt, reply_markup=reply_markup)
     elif message:
         await message.reply_text(text=prompt, reply_markup=reply_markup)
+
+
+
+
 
 
 async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
@@ -255,6 +327,7 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
     filter_type, filter_id = query.data.split("_")
     current_url = f"{BASE_URL}/schedules/?{filter_type}={filter_id}"
+
     response = requests.get(current_url)
 
     if response.status_code == 200:
@@ -295,6 +368,8 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
 
 #####################################
+
+
 
 
 async def get_schedule_groups(update, context):
