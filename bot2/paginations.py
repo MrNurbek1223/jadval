@@ -55,15 +55,15 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
 
         if schedules:
             schedule_text = "\n\n".join(
-                f"Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
-                f"Boshlanish: {schedule.get('start_time', 'Noma\'lum')}\n"
+                f"📅 Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
+                f"⏰ Boshlanish: {schedule.get('start_time', 'Noma\'lum')} | "
                 f"Tugash: {schedule.get('end_time', 'Noma\'lum')}\n"
-                f"Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
-                f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
-                f"Xona: {schedule.get('room', 'Noma\'lum')}\n"
-                f"Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
-                f"Xona raqami: {schedule.get('room_number', 'N/A')}\n"
-                f"Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
+                f"👥 Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
+                f"📚 Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+                f"🏫 Xona: {schedule.get('room', 'Noma\'lum')} | "
+                f"Raqam: {schedule.get('room_number', 'N/A')}\n"
+                f"👨‍🏫 Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
+                f"🔢 Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
                 for schedule in schedules
             )
 

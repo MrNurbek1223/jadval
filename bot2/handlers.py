@@ -7,7 +7,7 @@ from config import BASE_URL, SCHEDULES_URL, LOGIN_URL
 
 async def start(update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Davomat qilish", callback_data="attendance"),
+        [InlineKeyboardButton("Davomat", callback_data="attendance"),
          InlineKeyboardButton("Dars jadvali", callback_data="view_schedule")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -32,37 +32,102 @@ async def view_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
 async def attendance_handler(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    if query:
-        await query.answer()
+    await query.answer()
 
-        access_token = context.user_data.get("access_token")
-        if access_token:
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = requests.get(SCHEDULES_URL, headers=headers)
+    access_token = context.user_data.get("access_token")
 
-            if response.status_code == 401:
-                await query.edit_message_text("Token eskirgan. Iltimos, qayta login qiling.\nFormat: email password")
-                context.user_data.pop("access_token", None)
-                context.user_data.pop("email", None)
-                context.user_data["waiting_for_login"] = True
-                return
-            elif response.status_code == 200:
-                await query.edit_message_text("Davomat qilish jarayoniga o‘tayapman...")
-                await get_teacher_schedule(update, context)
-                return
-
+    if not access_token:  # Agar foydalanuvchi login qilmagan bo'lsa
         await query.edit_message_text("Iltimos, email va parolingizni kiriting:\nFormat: email password")
         context.user_data["waiting_for_login"] = True
+        return
+
+    # Login muvaffaqiyatli bo'lsa, yangi tugmalarni ko'rsatadi
+    keyboard = [
+        [InlineKeyboardButton("Davomat qilish", callback_data="do_attendance"),
+        InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
+        [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("Davomat uchun quyidagi opsiyalardan birini tanlang:", reply_markup=reply_markup)
 
 
+async def do_attendance(update, context: ContextTypes.DEFAULT_TYPE):
+    access_token = context.user_data.get("access_token", None)
+    if not access_token:
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Avval tizimga kiring.")
+        elif update.message:
+            await update.message.reply_text("Avval tizimga kiring.")
+        return
 
-from telegram.ext import ContextTypes
+    page_url = context.user_data.get("current_schedule_page", SCHEDULES_URL)
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(page_url, headers=headers)
+
+    if response.status_code == 401:
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Token eskirgan. Iltimos, qayta login qiling.")
+        elif update.message:
+            await update.message.reply_text("Token eskirgan. Iltimos, qayta login qiling.")
+        context.user_data.pop("access_token", None)
+        context.user_data.pop("email", None)
+        context.user_data["waiting_for_login"] = True
+        return
+
+    if response.status_code == 200:
+        data = response.json()
+        schedules = data.get("results", [])
+        next_page = data.get("next", None)
+        previous_page = data.get("previous", None)
+
+        schedule_text = "\n\n".join(
+            f"{idx + 1}. 📅 Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
+            f"    🕒 Vaqt: {schedule.get('start_time', 'Noma\'lum')} - {schedule.get('end_time', 'Noma\'lum')}\n"
+            f"    🎓 Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+            f"    🏫 Xona: {schedule.get('room', 'Noma\'lum')} ({schedule.get('room_number', 'N/A')})\n"
+            f"    👥 Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}"
+            for idx, schedule in enumerate(schedules)
+        )
+
+        schedule_buttons = [
+            InlineKeyboardButton(f"{idx + 1}", callback_data=f"schedule_{schedule['id']}")
+            for idx, schedule in enumerate(schedules)
+        ]
+        formatted_buttons = [schedule_buttons[i:i + 4] for i in range(0, len(schedule_buttons), 4)]
+
+        pagination_buttons = []
+        if previous_page:
+            pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="attendance_previous"))
+            context.user_data["attendance_previous_page"] = previous_page
+        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="go_back"))
+        if next_page:
+            pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data="attendance_next"))
+            context.user_data["attendance_next_page"] = next_page
+
+        formatted_buttons.append(pagination_buttons)
+
+        reply_markup = InlineKeyboardMarkup(formatted_buttons)
+        if update.callback_query:
+            await update.callback_query.edit_message_text(
+                f"Dars jadvallari:\n\n{schedule_text}", reply_markup=reply_markup
+            )
+        elif update.message:
+            await update.message.reply_text(f"Dars jadvallari:\n\n{schedule_text}", reply_markup=reply_markup)
+    else:
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Jadvalni olishda xatolik yuz berdi.")
+        elif update.message:
+            await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
+
+
 
 async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Foydalanuvchi holatiga qarab matnli kirishni boshqaradi.
+    Foydalanuvchi matnli kirishni boshqaradi:
+    - Login jarayoni uchun
+    - Qidiruv so'rovlari uchun
     """
-
+    # Login jarayoni
     if context.user_data.get("waiting_for_login"):
         user_input = update.message.text.split()
         if len(user_input) != 2:
@@ -78,16 +143,23 @@ async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
             if access_token:
                 context.user_data["access_token"] = access_token
                 context.user_data["email"] = email
-                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Davomat qilishga o‘tayapman...")
-                await get_teacher_schedule(update, context)
+                context.user_data["waiting_for_login"] = False
+
+                # Login muvaffaqiyatli bo'lsa, tugmalarni ko'rsatish
+                keyboard = [
+                    [InlineKeyboardButton("Davomat qilish", callback_data="do_attendance"),
+                     InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
+                    [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi.", reply_markup=reply_markup)
             else:
                 await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
         else:
-            await update.message.reply_text("Login xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
-        context.user_data["waiting_for_login"] = False
+            await update.message.reply_text("Login amalga oshirishda xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
         return
 
-
+    # Qidiruv so'rovi
     if context.user_data.get("awaiting_search_query"):
         endpoint = context.user_data.pop("awaiting_search_query")
         search_query = update.message.text.strip()
@@ -100,13 +172,16 @@ async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
             update=update,
             context=context,
             endpoint=endpoint,
-            prompt=f"{endpoint.capitalize()} natijalari uchun:",
+            prompt=f"{endpoint.capitalize()} tanlang:",
             callback_prefix=f"view_{endpoint}"
         )
         return
 
+    # Agar boshqa jarayon bo'lsa
+    await update.message.reply_text("Noma'lum so'rov. Iltimos, tegishli tugmani tanlang yoki yordam so'rang.")
 
-    await update.message.reply_text("Noto‘g‘ri buyruq yoki holat. Iltimos, qaytadan urinib ko‘ring.")
+
+
 
 async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("waiting_for_login"):
@@ -122,15 +197,22 @@ async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
             access_token = token_data.get("access", None)
 
             if access_token:
-                context.user_data["access_token"] = access_token
-                context.user_data["email"] = email
-                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi. Davomat qilishga o‘tayapman...")
-                await get_teacher_schedule(update, context)
+                headers = {"Authorization": f"Bearer {access_token}"}
+                user_info_response = requests.get(f"{BASE_URL}/user-info/", headers=headers)
+                if user_info_response.status_code == 200:
+                    user_data = user_info_response.json()
+                    context.user_data["access_token"] = access_token
+                    context.user_data["role"] = user_data.get("role", "unknown")
+                    context.user_data["waiting_for_login"] = False
+
+                    await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi.")
+                    await attendance_handler(update, context)
+                else:
+                    await update.message.reply_text("Foydalanuvchi ma'lumotlarini olishda xatolik yuz berdi.")
             else:
                 await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
         else:
             await update.message.reply_text("Login xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
-
         context.user_data["waiting_for_login"] = False
 
 
@@ -219,10 +301,8 @@ async def fetch_and_display_options(
     url = page_url or context.user_data.get(f"{endpoint}_current", base_url)
     search_query = context.user_data.get(f"{endpoint}_search", None)
 
-
     if search_query and 'search=' not in url:
         url += f"&search={search_query}" if "?" in url else f"?search={search_query}"
-
 
     try:
 
@@ -237,22 +317,18 @@ async def fetch_and_display_options(
             await message.reply_text(error_message)
         return
 
-
     data = response.json()
 
     items = data.get("results", [])
     next_page = data.get("next", None)
     previous_page = data.get("previous", None)
 
-
     context.user_data[f"{endpoint}_current"] = url
     context.user_data[f"{endpoint}_next"] = next_page
     context.user_data[f"{endpoint}_previous"] = previous_page
 
-
     field_map = {"teachers": "username", "groups": "name", "rooms": "name", "subject": "name"}
     field = field_map.get(endpoint, "name")
-
 
     buttons = [
         InlineKeyboardButton(
@@ -261,7 +337,6 @@ async def fetch_and_display_options(
         )
         for item in items
     ]
-
 
     keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
 
@@ -284,16 +359,11 @@ async def fetch_and_display_options(
 
     keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
 
-
     reply_markup = InlineKeyboardMarkup(keyboard)
     if query:
         await query.edit_message_text(text=prompt, reply_markup=reply_markup)
     elif message:
         await message.reply_text(text=prompt, reply_markup=reply_markup)
-
-
-
-
 
 
 async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
@@ -338,17 +408,18 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
         if schedules:
             schedule_text = "\n\n".join(
-                f"Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
-                f"Boshlanish: {schedule.get('start_time', 'Noma\'lum')}\n"
+                f"📅 Kun: {schedule.get('day_of_week', 'Noma\'lum')}\n"
+                f"⏰ Boshlanish: {schedule.get('start_time', 'Noma\'lum')} | "
                 f"Tugash: {schedule.get('end_time', 'Noma\'lum')}\n"
-                f"Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
-                f"Fan: {schedule.get('subject', 'Noma\'lum')}\n"
-                f"Xona: {schedule.get('room', 'Noma\'lum')}\n"
-                f"Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
-                f"Xona raqami: {schedule.get('room_number', 'N/A')}\n"
-                f"Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
+                f"👥 Guruh: {', '.join(group.get('name', 'Noma\'lum') for group in schedule.get('group', []))}\n"
+                f"📚 Fan: {schedule.get('subject', 'Noma\'lum')}\n"
+                f"🏫 Xona: {schedule.get('room', 'Noma\'lum')} | "
+                f"Raqam: {schedule.get('room_number', 'N/A')}\n"
+                f"👨‍🏫 Ustoz: {schedule.get('teacher', 'Noma\'lum')}\n"
+                f"🔢 Sessiya: {schedule.get('session_number', 'Noma\'lum')}"
                 for schedule in schedules
             )
+
             pagination_buttons = []
             if data.get("previous"):
                 pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="schedules_previous"))
@@ -368,8 +439,6 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
 
 
 #####################################
-
-
 
 
 async def get_schedule_groups(update, context):
@@ -483,6 +552,10 @@ async def confirm_attendance(update, context):
     else:
         error_message = response.json().get("detail", "Xatolik yuz berdi.")
         await query.edit_message_text(f"Davomatni saqlashda xatolik yuz berdi: {error_message}")
+
+
+async def view_attendance(update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer("Davomat ko'rish funksiyasi hozircha mavjud emas.")
 
 
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):

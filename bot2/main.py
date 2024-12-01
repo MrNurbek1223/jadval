@@ -4,7 +4,7 @@ from bot2.search import handle_search_query, search_handler, clear_search_handle
 from config import TOKEN
 from handlers import start, display_schedule, get_groups, get_teachers, get_rooms, get_subject, go_back, view_schedule, \
     attendance_handler, handle_login_credentials, confirm_attendance, toggle_student, \
-    get_schedule_groups, get_group_students, paginate, unified_text_handler
+    get_schedule_groups, get_group_students, paginate, unified_text_handler, do_attendance, view_attendance
 
 
 def main():
@@ -40,6 +40,9 @@ def main():
     app.add_handler(CallbackQueryHandler(get_group_students, pattern="^attendance_group_"))
     app.add_handler(CallbackQueryHandler(toggle_student, pattern="^toggle_"))
     app.add_handler(CallbackQueryHandler(confirm_attendance, pattern="^confirm_attendance$"))
+
+    app.add_handler(CallbackQueryHandler(do_attendance, pattern="^do_attendance$"))
+    app.add_handler(CallbackQueryHandler(view_attendance, pattern="^view_attendance$"))
 
     app.run_polling()
 
