@@ -50,13 +50,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 
-
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-
         email = attrs.get('email')
         password = attrs.get('password')
 
@@ -69,7 +67,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError("Invalid credentials")
 
         attrs['user'] = user
-        return super().validate(attrs)
+        data = super().validate(attrs)
+
+        # Add the user's role to the token payload
+        data['role'] = user.role
+        return data
+
 
 
 class TeacherSerializer(serializers.ModelSerializer):

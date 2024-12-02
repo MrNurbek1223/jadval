@@ -4,7 +4,9 @@ from bot2.search import handle_search_query, search_handler, clear_search_handle
 from config import TOKEN
 from handlers import start, display_schedule, get_groups, get_teachers, get_rooms, get_subject, go_back, view_schedule, \
     attendance_handler, handle_login_credentials, confirm_attendance, toggle_student, \
-    get_schedule_groups, get_group_students, paginate, unified_text_handler, do_attendance, view_attendance
+    get_schedule_groups, get_group_students, paginate, unified_text_handler, do_attendance, view_attendance, \
+    view_group_attendance, view_student_attendance, paginate_groups, \
+    view_subject_attendance, view_groups, view_subjects, paginate_subjects
 
 
 def main():
@@ -42,7 +44,15 @@ def main():
     app.add_handler(CallbackQueryHandler(confirm_attendance, pattern="^confirm_attendance$"))
 
     app.add_handler(CallbackQueryHandler(do_attendance, pattern="^do_attendance$"))
+
     app.add_handler(CallbackQueryHandler(view_attendance, pattern="^view_attendance$"))
+    app.add_handler(CallbackQueryHandler(view_groups, pattern="^attendance_view_groups$"))
+    app.add_handler(CallbackQueryHandler(view_subjects, pattern="^attendance_view_subjects$"))
+    app.add_handler(CallbackQueryHandler(view_group_attendance, pattern="^attendance_group1_"))
+    app.add_handler(CallbackQueryHandler(view_subject_attendance, pattern="^attendance_subject_"))
+
+    app.add_handler(CallbackQueryHandler(paginate_groups, pattern="^paginate1_groups_(previous|next)$"))
+    app.add_handler(CallbackQueryHandler(paginate_subjects, pattern="^paginate2_subjects_(previous|next)$"))
 
     app.run_polling()
 

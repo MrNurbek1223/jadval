@@ -1,39 +1,35 @@
+from rest_framework.permissions import IsAuthenticated
+from api.attendancestatistics.filters import AttendanceFilter
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from api.attendancestatistics.filters import (
-    get_group_subject_statistics,
-    get_group_all_subjects_statistics,
-    get_student_all_subjects_statistics,
-    get_student_subject_statistics
-)
+from apps.attendance.models import Attendance
 
 
 class AttendanceStatisticsView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        group_id = request.query_params.get('group_id')
-        subject_id = request.query_params.get('subject_id')
-        student_id = request.query_params.get('student_id')
-        period = request.query_params.get('period')
+        user = request.user
+        filterset = AttendanceFilter(request.query_params, queryset=Attendance.objects.select_related('student', 'schedule'))
 
-        if not period:
-            return Response({"error": "Davr ('period') parametri kerak."}, status=status.HTTP_400_BAD_REQUEST)
+        if not filterset.is_valid():
+            return Response({"error": filterset.errors}, status=400)
 
-        if group_id and subject_id:
-            data = get_group_subject_statistics(group_id, subject_id, period)
-
-        elif group_id and not subject_id:
-            data = get_group_all_subjects_statistics(group_id, period)
-
-        elif student_id and not subject_id:
-            data = get_student_all_subjects_statistics(student_id, period)
-
-        elif student_id and subject_id:
-            data = get_student_subject_statistics(student_id, subject_id, period)
-
+        if user.role == 'teacher':
+            data = filterset.qs.filter(schedule__teacher=user, status='absent')
+        elif user.role == 'student':
+            data = filterset.qs.filter(student=user, status='absent')
         else:
-            return Response({"error": "To'g'ri parametrlarni kiriting (group_id va subject_id yoki student_id)."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Sizga bu ma'lumotni ko'rish ruxsat etilmagan."}, status=403)
 
-        return Response(data, status=status.HTTP_200_OK)
+        response_data = [
+            {
+                "Fan": attendance.schedule.subject.name,
+                "Sana": attendance.schedule.start_time.strftime("%Y-%m-%d %H:%M"),
+                "Talaba": attendance.student.username if user.role == 'teacher' else None,
+                "Holat": attendance.status,
+                "Sabab": attendance.reason,
+            }
+            for attendance in data
+        ]
+        return Response(response_data, status=200)

@@ -76,7 +76,7 @@ async def paginate_schedules(update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = []
             if pagination_buttons:
                 keyboard.append(pagination_buttons)
-            keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+            keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_schedule")])
 
             await query.edit_message_text(f"Jadval:\n\n{schedule_text}", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
@@ -126,7 +126,7 @@ async def paginate_attendance(update, context):
         pagination_buttons = []
         if previous_page:
             pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="attendance_previous"))
-        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="go_back"))
+        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="view_schedule"))
         if next_page:
             pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data="attendance_next"))
 

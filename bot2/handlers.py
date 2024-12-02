@@ -36,15 +36,14 @@ async def attendance_handler(update, context: ContextTypes.DEFAULT_TYPE):
 
     access_token = context.user_data.get("access_token")
 
-    if not access_token:  # Agar foydalanuvchi login qilmagan bo'lsa
+    if not access_token:
         await query.edit_message_text("Iltimos, email va parolingizni kiriting:\nFormat: email password")
         context.user_data["waiting_for_login"] = True
         return
 
-    # Login muvaffaqiyatli bo'lsa, yangi tugmalarni ko'rsatadi
     keyboard = [
         [InlineKeyboardButton("Davomat qilish", callback_data="do_attendance"),
-        InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
+         InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
         [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -99,7 +98,7 @@ async def do_attendance(update, context: ContextTypes.DEFAULT_TYPE):
         if previous_page:
             pagination_buttons.append(InlineKeyboardButton("⬅ Oldingisi", callback_data="attendance_previous"))
             context.user_data["attendance_previous_page"] = previous_page
-        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="go_back"))
+        pagination_buttons.append(InlineKeyboardButton("❌ Orqaga", callback_data="attendance"))
         if next_page:
             pagination_buttons.append(InlineKeyboardButton("Keyingisi ➡", callback_data="attendance_next"))
             context.user_data["attendance_next_page"] = next_page
@@ -120,46 +119,65 @@ async def do_attendance(update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Jadvalni olishda xatolik yuz berdi.")
 
 
-
 async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Foydalanuvchi matnli kirishni boshqaradi:
-    - Login jarayoni uchun
-    - Qidiruv so'rovlari uchun
-    """
-    # Login jarayoni
     if context.user_data.get("waiting_for_login"):
         user_input = update.message.text.split()
         if len(user_input) != 2:
-            await update.message.reply_text("Noto‘g‘ri format. Iltimos, email va parolni qaytadan kiriting.")
+            await update.message.reply_text(
+                "Noto‘g‘ri format. Iltimos, email va parolni qaytadan kiriting.\nFormat: email password")
             return
+
         email, password = user_input
 
-        response = requests.post(LOGIN_URL, json={"email": email, "password": password})
-        if response.status_code == 200:
-            token_data = response.json()
-            access_token = token_data.get("access", None)
+        try:
+            # Foydalanuvchini tizimga kirish
+            response = requests.post(LOGIN_URL, json={"email": email, "password": password})
+            if response.status_code == 200:
+                token_data = response.json()
+                access_token = token_data.get("access")
+                refresh_token = token_data.get("refresh")
+                role = token_data.get("role")
 
-            if access_token:
-                context.user_data["access_token"] = access_token
-                context.user_data["email"] = email
-                context.user_data["waiting_for_login"] = False
+                if access_token and role:
+                    # Token va foydalanuvchi ma'lumotlarini saqlash
+                    context.user_data["access_token"] = access_token
+                    context.user_data["refresh_token"] = refresh_token
+                    context.user_data["role"] = role
+                    context.user_data["waiting_for_login"] = False
 
-                # Login muvaffaqiyatli bo'lsa, tugmalarni ko'rsatish
-                keyboard = [
-                    [InlineKeyboardButton("Davomat qilish", callback_data="do_attendance"),
-                     InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
-                    [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                await update.message.reply_text("Login muvaffaqiyatli amalga oshirildi.", reply_markup=reply_markup)
+                    # Roli asosida tugmalarni ko'rsatish
+                    if role == "teacher":
+                        keyboard = [
+                            [InlineKeyboardButton("Davomat qilish", callback_data="do_attendance"),
+                             InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
+                            [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        await update.message.reply_text(
+                            "Xush kelibsiz, o'qituvchi! Quyidagi opsiyalardan birini tanlang:",
+                            reply_markup=reply_markup
+                        )
+                    elif role == "student":
+                        keyboard = [
+                            [InlineKeyboardButton("Davomat ko'rish", callback_data="view_attendance")],
+                            [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        await update.message.reply_text(
+                            "Xush kelibsiz, talaba! Quyidagi opsiyani tanlang:",
+                            reply_markup=reply_markup
+                        )
+                    else:
+                        await update.message.reply_text("Roli aniqlanmadi. Iltimos, administrator bilan bog'laning.")
+                else:
+                    await update.message.reply_text("Login amalga oshmadi. Token yoki rol olinmadi.")
             else:
-                await update.message.reply_text("Login amalga oshirilmadi. Iltimos, qayta urinib ko‘ring.")
-        else:
-            await update.message.reply_text("Login amalga oshirishda xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.")
+                await update.message.reply_text(
+                    "Login amalga oshirishda xatolik yuz berdi. Email va parolni qayta tekshirib ko'ring.")
+        except requests.RequestException as e:
+            await update.message.reply_text(f"Tizimga ulanishda xatolik yuz berdi: {e}")
         return
 
-    # Qidiruv so'rovi
     if context.user_data.get("awaiting_search_query"):
         endpoint = context.user_data.pop("awaiting_search_query")
         search_query = update.message.text.strip()
@@ -177,10 +195,7 @@ async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Agar boshqa jarayon bo'lsa
     await update.message.reply_text("Noma'lum so'rov. Iltimos, tegishli tugmani tanlang yoki yordam so'rang.")
-
-
 
 
 async def handle_login_credentials(update, context: ContextTypes.DEFAULT_TYPE):
@@ -357,7 +372,7 @@ async def fetch_and_display_options(
         search_buttons.append(InlineKeyboardButton("❌ Qidiruvni tozalash", callback_data=f"clear_search_{endpoint}"))
     keyboard.append(search_buttons)
 
-    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+    keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_schedule")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     if query:
@@ -429,7 +444,7 @@ async def display_schedule(update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = []
             if pagination_buttons:
                 keyboard.append(pagination_buttons)
-            keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+            keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_schedule")])
 
             await query.edit_message_text(f"Jadval:\n\n{schedule_text}", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
@@ -460,7 +475,7 @@ async def get_schedule_groups(update, context):
             )]
             for group in groups
         ]
-        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")])
+        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="do_attendance")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("Quyidagi guruhlardan birini tanlang:", reply_markup=reply_markup)
     else:
@@ -555,7 +570,274 @@ async def confirm_attendance(update, context):
 
 
 async def view_attendance(update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer("Davomat ko'rish funksiyasi hozircha mavjud emas.")
+    query = update.callback_query
+    await query.answer()
+
+    access_token = context.user_data.get("access_token")
+    role = context.user_data.get("role")
+
+    if not access_token or not role:
+        await query.edit_message_text("Xatolik: tizimga kirish ma'lumotlari mavjud emas.")
+        return
+
+    if role == "teacher":
+        keyboard = [
+            [InlineKeyboardButton("Guruhlar bo'yicha", callback_data="attendance_view_groups"),
+             InlineKeyboardButton("Fanlar bo'yicha", callback_data="attendance_view_subjects")],
+            [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+        ]
+    elif role == "student":
+        keyboard = [
+            [InlineKeyboardButton("Fanlar bo'yicha", callback_data="attendance_view_subjects")],
+            [InlineKeyboardButton("🔙 Orqaga", callback_data="go_back")]
+        ]
+    else:
+        await query.edit_message_text("Roli aniqlanmadi. Administrator bilan bog'laning.")
+        return
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text("Davomatni ko‘rish uchun quyidagi opsiyalardan birini tanlang:",
+                                  reply_markup=reply_markup)
+
+
+async def view_groups(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    access_token = context.user_data.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+
+    current_page_url = context.user_data.get("groups_current_page", f"{BASE_URL}/groups/")
+    response = requests.get(current_page_url, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        groups = data.get("results", []) if isinstance(data, dict) else []
+
+        if not groups:
+            await query.edit_message_text("❌ Guruhlar ro‘yxati mavjud emas.")
+            return
+
+        keyboard = [
+            [InlineKeyboardButton(f"{group['name']}", callback_data=f"attendance_group1_{group['id']}")]
+            for group in groups
+        ]
+
+        # Paginatsiya tugmalarini qo‘shish
+        pagination_buttons = []
+        if data.get("previous"):
+            pagination_buttons.append(InlineKeyboardButton("⬅ Oldingi", callback_data="paginate1_groups_previous"))
+            context.user_data["groups_previous_page"] = data["previous"]
+        if data.get("next"):
+            pagination_buttons.append(InlineKeyboardButton("Keyingi ➡", callback_data="paginate1_groups_next"))
+            context.user_data["groups_next_page"] = data["next"]
+
+        if pagination_buttons:
+            keyboard.append(pagination_buttons)
+
+        # Orqaga qaytish tugmasi
+        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_attendance")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("Guruhlar ro‘yxatidan birini tanlang:", reply_markup=reply_markup)
+    else:
+        await query.edit_message_text("❌ Guruh ma'lumotlarini olishda xatolik yuz berdi.")
+
+
+
+async def view_subjects(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    access_token = context.user_data.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+
+    current_page_url = context.user_data.get("subjects_current_page", f"{BASE_URL}/subject/")
+    response = requests.get(current_page_url, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        subjects = data.get("results", []) if isinstance(data, dict) else []
+
+        if not subjects:
+            await query.edit_message_text("❌ Fanlar ro‘yxati mavjud emas.")
+            return
+
+
+        keyboard = [
+            [InlineKeyboardButton(f"{subject['name']}", callback_data=f"attendance_subject_{subject['id']}")]
+            for subject in subjects
+        ]
+
+
+        pagination_buttons = []
+        if data.get("previous"):
+            pagination_buttons.append(InlineKeyboardButton("⬅ Oldingi", callback_data="paginate2_subjects_previous"))
+            context.user_data["subjects_previous_page"] = data["previous"]
+        if data.get("next"):
+            pagination_buttons.append(InlineKeyboardButton("Keyingi ➡", callback_data="paginate2_subjects_next"))
+            context.user_data["subjects_next_page"] = data["next"]
+
+        if pagination_buttons:
+            keyboard.append(pagination_buttons)
+
+
+        keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_attendance")])
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("Fanlardan birini tanlang:", reply_markup=reply_markup)
+    else:
+        await query.edit_message_text("❌ Fan ma'lumotlarini olishda xatolik yuz berdi.")
+
+
+async def paginate_subjects(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+
+    direction = query.data.split("_")[2]
+    page_url = context.user_data.get(f"subjects_{direction}_page")
+
+    if not page_url:
+        await query.edit_message_text("❌ Paginatsiya uchun sahifa topilmadi.")
+        return
+
+
+    context.user_data["subjects_current_page"] = page_url
+    await view_subjects(update, context)
+
+
+
+async def format_attendance_data(attendance_data):
+    formatted_text = ""
+    for record in attendance_data:
+        formatted_text += (
+            f"📚 *Fan*: {record['Fan']}\n"
+            f"📅 *Sana*: {record['Sana']}\n"
+            f"👤 *Talaba*: {record['Talaba']}\n\n"
+        )
+    return formatted_text.strip()
+
+
+async def view_group_attendance(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+
+    group_id = query.data.split("_")[2]
+
+    access_token = context.user_data.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    attendance_url = f"{BASE_URL}/attendance-statistics/?group_id={group_id}"
+    response = requests.get(attendance_url, headers=headers)
+
+    if response.status_code == 200:
+        attendance_data = response.json()
+
+        if not attendance_data:
+            keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_groups")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(
+                "❌ Ushbu guruh uchun dars qoldirgan talabalar mavjud emas.",
+                reply_markup=reply_markup
+            )
+            return
+
+
+        attendance_text = "\n\n".join([
+            f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n👤 Talaba: {item['Talaba']}"
+            for item in attendance_data
+        ])
+        keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_groups")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(f"Guruh bo‘yicha davomat:\n\n{attendance_text}", reply_markup=reply_markup)
+    else:
+        keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_groups")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "❌ Davomat ma'lumotlarini olishda xatolik yuz berdi.",
+            reply_markup=reply_markup
+        )
+
+
+
+async def paginate_groups(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    direction = query.data.split("_")[2]
+    page_url = context.user_data.get(f"groups_{direction}_page")
+
+    if not page_url:
+        await query.edit_message_text("❌ Paginatsiya uchun sahifa topilmadi.")
+        return
+
+    context.user_data["groups_current_page"] = page_url
+    await view_groups(update, context)
+
+
+async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    subject_id = query.data.split("_")[2]
+
+    access_token = context.user_data.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    attendance_url = f"{BASE_URL}/attendance-statistics/?subject_id={subject_id}"
+    response = requests.get(attendance_url, headers=headers)
+
+    if response.status_code == 200:
+        attendance_data = response.json()
+
+        if not attendance_data:
+            keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(
+                "❌ Ushbu fan uchun dars qoldirgan talabalar mavjud emas.",
+                reply_markup=reply_markup
+            )
+            return
+
+
+        attendance_text = "\n\n".join([
+            f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n👤 Talaba: {item['Talaba']}\n"
+            for item in attendance_data
+        ])
+        keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(f"Fan bo‘yicha davomat:\n\n{attendance_text}", reply_markup=reply_markup)
+    else:
+        keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            "❌ Davomat ma'lumotlarini olishda xatolik yuz berdi.",
+            reply_markup=reply_markup
+        )
+
+
+
+async def view_student_attendance(update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    subject_id = query.data.split("_")[2]
+
+    access_token = context.user_data.get("access_token")
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    attendance_url = f"{BASE_URL}/attendance-statistics/?subject_id={subject_id}"
+    response = requests.get(attendance_url, headers=headers)
+
+    if response.status_code == 200:
+        attendance_data = response.json()
+        attendance_text = "\n".join([
+            f"Sana: {item['date']} | Holat: {item['status']}"
+            for item in attendance_data
+        ])
+        await query.edit_message_text(f"Sizning davomatingiz:\n\n{attendance_text}")
+    else:
+        await query.edit_message_text("Davomat ma'lumotlarini olishda xatolik yuz berdi.")
 
 
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):
