@@ -6,7 +6,8 @@ from handlers import start, display_schedule, get_groups, get_teachers, get_room
     attendance_handler, handle_login_credentials, confirm_attendance, toggle_student, \
     get_schedule_groups, get_group_students, paginate, unified_text_handler, do_attendance, view_attendance, \
     view_group_attendance, view_student_attendance, paginate_groups, \
-    view_subject_attendance, view_groups, view_subjects, paginate_subjects
+    view_subject_attendance, view_groups, view_subjects, paginate_subjects, view_group_statistics, \
+    fetch_group_statistics, paginate_group_stats
 
 
 def main():
@@ -54,6 +55,10 @@ def main():
 
     app.add_handler(CallbackQueryHandler(paginate_groups, pattern="^paginate1_groups_(previous|next)$"))
     app.add_handler(CallbackQueryHandler(paginate_subjects, pattern="^paginate2_subjects_(previous|next)$"))
+
+    app.add_handler(CallbackQueryHandler(view_group_statistics, pattern="^view_group0_statistics$"))
+    app.add_handler(CallbackQueryHandler(fetch_group_statistics, pattern="^group0_stats_"))
+    app.add_handler(CallbackQueryHandler(paginate_group_stats, pattern="^paginate_group_stats_(previous|next)$"))
 
     app.run_polling()
 
