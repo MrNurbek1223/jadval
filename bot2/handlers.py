@@ -628,7 +628,7 @@ async def view_groups(update, context: ContextTypes.DEFAULT_TYPE):
             for group in groups
         ]
 
-        # Paginatsiya tugmalarini qo‘shish
+
         pagination_buttons = []
         if data.get("previous"):
             pagination_buttons.append(InlineKeyboardButton("⬅ Oldingi", callback_data="paginate1_groups_previous"))
@@ -640,7 +640,7 @@ async def view_groups(update, context: ContextTypes.DEFAULT_TYPE):
         if pagination_buttons:
             keyboard.append(pagination_buttons)
 
-        # Orqaga qaytish tugmasi
+
         keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_attendance")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -786,15 +786,15 @@ async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Callback dan subject_id ni olish
+
     subject_id = query.data.split("_")[2]
 
-    # Access token va rolni olish
+
     access_token = context.user_data.get("access_token")
-    role = context.user_data.get("role")  # Role: "teacher" yoki "student"
+    role = context.user_data.get("role")
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # API ga so‘rov yuborish
+
     attendance_url = f"{BASE_URL}/attendance-statistics/?subject_id={subject_id}"
     response = requests.get(attendance_url, headers=headers)
 
@@ -810,7 +810,7 @@ async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # Rolega qarab davomat ma'lumotlarini formatlash
+
         if role == "teacher":
             attendance_text = "\n\n".join([
                 f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n👤 Talaba: {item['Talaba']}\n"
@@ -825,7 +825,7 @@ async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Noma'lum rol. Administrator bilan bog‘laning.")
             return
 
-        # Tugmalarni qo‘shish
+
         keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(f"Davomat ma’lumotlari:\n\n{attendance_text}", reply_markup=reply_markup)
@@ -877,7 +877,7 @@ async def view_group_statistics(update, context: ContextTypes.DEFAULT_TYPE):
     access_token = context.user_data.get("access_token")
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Use the current page URL or the base URL for groups
+
     current_page_url = context.user_data.get("group_stats_current_page", f"{BASE_URL}/groups/")
     response = requests.get(current_page_url, headers=headers)
 
@@ -891,13 +891,13 @@ async def view_group_statistics(update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("❌ Guruhlar mavjud emas.")
             return
 
-        # Build group selection buttons
+
         keyboard = [
             [InlineKeyboardButton(group["name"], callback_data=f"group0_stats_{group['id']}")]
             for group in groups
         ]
 
-        # Add unique pagination buttons
+
         pagination_buttons = []
         if previous_page:
             pagination_buttons.append(
@@ -911,7 +911,7 @@ async def view_group_statistics(update, context: ContextTypes.DEFAULT_TYPE):
         if pagination_buttons:
             keyboard.append(pagination_buttons)
 
-        # Add a back button
+
         keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_group0_statistics")])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -928,16 +928,16 @@ async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.answer()
 
-    # Determine the direction of pagination
+
     try:
-        direction = callback_data.rsplit("_", 1)[-1]  # Extract 'previous' or 'next'
+        direction = callback_data.rsplit("_", 1)[-1]
         if direction not in ["previous", "next"]:
             raise ValueError("Invalid direction in callback data.")
     except ValueError:
         await query.edit_message_text("❌ Xatolik: Tugma ma'lumotlari noto'g'ri.")
         return
 
-    # Get the appropriate page URL from context
+
     page_url = context.user_data.get(f"group_stats_{direction}_page")
     if not page_url:
         await query.edit_message_text("❌ Paginatsiya uchun sahifa topilmadi.")
@@ -946,7 +946,7 @@ async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
     access_token = context.user_data.get("access_token")
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # Make the API call for the next/previous page
+
     try:
         response = requests.get(page_url, headers=headers)
         response.raise_for_status()
@@ -954,13 +954,14 @@ async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"❌ Ma'lumotlarni yuklashda xatolik yuz berdi: {e}")
         return
 
-    # Parse and process the response
+
+
     data = response.json()
     groups = data.get("results", [])
     next_page = data.get("next")
     previous_page = data.get("previous")
 
-    # Update context with the new page URLs
+
     context.user_data["group_stats_current_page"] = page_url
     context.user_data["group_stats_next_page"] = next_page
     context.user_data["group_stats_previous_page"] = previous_page
@@ -969,13 +970,13 @@ async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("❌ Ushbu sahifada guruhlar mavjud emas.")
         return
 
-    # Build the dynamic keyboard
+
     keyboard = [
         [InlineKeyboardButton(group["name"], callback_data=f"group0_stats_{group['id']}")]
         for group in groups
     ]
 
-    # Add pagination buttons
+
     pagination_buttons = []
     if previous_page:
         pagination_buttons.append(
@@ -987,7 +988,7 @@ async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
     if pagination_buttons:
         keyboard.append(pagination_buttons)
 
-    # Add a back button
+
     keyboard.append([InlineKeyboardButton("🔙 Orqaga", callback_data="view_group0_statistics")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1007,27 +1008,45 @@ async def fetch_group_statistics(update, context: ContextTypes.DEFAULT_TYPE):
     if response.status_code == 200:
         data = response.json()
         group_name = data.get("group_name", "Noma'lum")
-        subjects = data.get("subjects", [])
+        semesters = data.get("semesters", [])
 
-        if not subjects:
+        if not semesters:
             await query.edit_message_text("❌ Statistikalar mavjud emas.")
             return
 
+
         stats_text = f"📚 *{group_name} Guruh Statistikasi*\n\n"
-        for subject in subjects:
+        for semester in semesters:
+            semester_name = semester.get("semester_name", "Noma'lum semestr")
+            start_date = semester.get("start_date", "Noma'lum")
+            end_date = semester.get("end_date", "Noma'lum")
             stats_text += (
-                f"Fan: {subject['subject__name']}\n"
-                f"Jami darslar: {subject['total_classes']}\n"
-                f"Jami qatnashgan: {subject['total_present']}\n"
-                f"Sababsiz qatnashmagan: {subject['unreasoned_absences']}\n"
-                f"Sababli qatnashmagan: {subject['reasoned_absences']}\n\n"
+                f"📅 *{semester_name}*\n"
+                f"Boshlanish: {start_date}\n"
+                f"Tugash: {end_date}\n\n"
             )
+            subjects = semester.get("subjects", [])
+            if not subjects:
+                stats_text += "Fanlar statistikasi mavjud emas.\n"
+                continue
+
+            for subject in subjects:
+                stats_text += (
+                    f"   📖 Fan: {subject['subject__name']}\n"
+                    f"   Jami darslar: {subject['total_classes']}\n"
+                    f"   Jami qatnashgan: {subject['total_present']}\n"
+                    f"   Sababsiz qatnashmagan: {subject['unreasoned_absences']}\n"
+                    f"   Sababli qatnashmagan: {subject['reasoned_absences']}\n\n"
+                )
+
 
         keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="view_group0_statistics")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(stats_text, reply_markup=reply_markup)
+
+        await query.edit_message_text(stats_text, reply_markup=reply_markup, parse_mode="Markdown")
     else:
         await query.edit_message_text("❌ Statistikalarni olishda xatolik yuz berdi.")
+
 
 
 async def get_groups(update, context: ContextTypes.DEFAULT_TYPE):

@@ -14,13 +14,13 @@ async def paginate(update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Xatolik yuz berdi. Tugma ma'lumotlari noto‘g‘ri.")
         return
 
-    # Fetch the correct page URL
+
     current_url = context.user_data.get(f"{endpoint}_{direction}")
     if not current_url:
         await query.edit_message_text("Sahifa ma'lumotlari mavjud emas.")
         return
 
-    # Immediately transition to fetch_and_display_options
+
     await fetch_and_display_options(
         update=update,
         context=context,

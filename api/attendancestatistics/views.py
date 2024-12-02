@@ -7,6 +7,9 @@ from apps.classschedule.models import ClassSchedule
 from apps.group.models import Group
 from django.db.models import Count, Q
 
+from apps.semester.models import Semester
+
+
 class AttendanceStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -39,7 +42,6 @@ class AttendanceStatisticsView(APIView):
 
 
 
-
 class GroupSubjectStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -65,19 +67,35 @@ class GroupSubjectStatisticsView(APIView):
         if role not in ['admin', 'teacher']:
             return Response({"detail": "Siz bu ma'lumotga ruxsatga ega emassiz."}, status=403)
 
-        # Fanlar bo‘yicha statistikani yig‘ish
-        subjects = ClassSchedule.objects.filter(group=group).values('subject__name').annotate(
-            total_classes=Count('id'),
-            total_present=Count('attendances', filter=Q(attendances__status='present')),
-            total_absent=Count('attendances', filter=Q(attendances__status='absent')),
-            reasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='reasoned')),
-            unreasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='unreasoned'))
-        )
+        # Guruhga tegishli semestrlarni olish
+        semesters = Semester.objects.filter(group=group)
+
+        # Semestrlar bo‘yicha statistikani yig‘ish
+        semester_stats = []
+        for semester in semesters:
+            subjects = ClassSchedule.objects.filter(
+                group=group,
+                start_time__date__gte=semester.start_date,
+                end_time__date__lte=semester.end_date
+            ).values('subject__name').annotate(
+                total_classes=Count('id'),
+                total_present=Count('attendances', filter=Q(attendances__status='present')),
+                total_absent=Count('attendances', filter=Q(attendances__status='absent')),
+                reasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='reasoned')),
+                unreasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='unreasoned'))
+            )
+
+            semester_stats.append({
+                "semester_name": semester.name,
+                "start_date": semester.start_date,
+                "end_date": semester.end_date,
+                "subjects": list(subjects)
+            })
 
         # Natijani shakllantirish
         data = {
             "group_name": group.name,
-            "subjects": list(subjects)
+            "semesters": semester_stats
         }
 
         return Response(data)
