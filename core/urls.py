@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from api.attendance.views import AttendanceViewSet
-from api.attendancestatistics.views import AttendanceStatisticsView
+from api.attendancestatistics.views import AttendanceStatisticsView, GroupSubjectStatisticsView
 from api.classschedule.views import ClassScheduleViewSet, TeacherClassScheduleViewSet
 from api.group.views import GroupViewSet, ClassScheduleGroupsAPIView
 from api.room.views import RoomViewSet
@@ -26,4 +26,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('schedule/<int:class_schedule_id>/groups/', ClassScheduleGroupsAPIView.as_view(),
          name='schedule-groups'),
+    path('group-subject-statistics/', GroupSubjectStatisticsView.as_view(), name='group-subject-statistics'),
 ]

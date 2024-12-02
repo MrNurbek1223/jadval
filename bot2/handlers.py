@@ -130,7 +130,7 @@ async def unified_text_handler(update, context: ContextTypes.DEFAULT_TYPE):
         email, password = user_input
 
         try:
-            # Foydalanuvchini tizimga kirish
+
             response = requests.post(LOGIN_URL, json={"email": email, "password": password})
             if response.status_code == 200:
                 token_data = response.json()
@@ -782,10 +782,15 @@ async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    # Callback dan subject_id ni olish
     subject_id = query.data.split("_")[2]
 
+    # Access token va rolni olish
     access_token = context.user_data.get("access_token")
+    role = context.user_data.get("role")  # Role: "teacher" yoki "student"
     headers = {"Authorization": f"Bearer {access_token}"}
+
+    # API ga so‘rov yuborish
     attendance_url = f"{BASE_URL}/attendance-statistics/?subject_id={subject_id}"
     response = requests.get(attendance_url, headers=headers)
 
@@ -796,19 +801,30 @@ async def view_subject_attendance(update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await query.edit_message_text(
-                "❌ Ushbu fan uchun dars qoldirgan talabalar mavjud emas.",
+                "❌ Ushbu fan uchun davomat ma’lumotlari mavjud emas.",
                 reply_markup=reply_markup
             )
             return
 
+        # Rolega qarab davomat ma'lumotlarini formatlash
+        if role == "teacher":
+            attendance_text = "\n\n".join([
+                f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n👤 Talaba: {item['Talaba']}\n"
+                for item in attendance_data
+            ])
+        elif role == "student":
+            attendance_text = "\n".join([
+                f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n"
+                for item in attendance_data
+            ])
+        else:
+            await query.edit_message_text("❌ Noma'lum rol. Administrator bilan bog‘laning.")
+            return
 
-        attendance_text = "\n\n".join([
-            f"📚 Fan: {item['Fan']}\n📅 Sana: {item['Sana']}\n👤 Talaba: {item['Talaba']}\n"
-            for item in attendance_data
-        ])
+        # Tugmalarni qo‘shish
         keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(f"Fan bo‘yicha davomat:\n\n{attendance_text}", reply_markup=reply_markup)
+        await query.edit_message_text(f"Davomat ma’lumotlari:\n\n{attendance_text}", reply_markup=reply_markup)
     else:
         keyboard = [[InlineKeyboardButton("🔙 Orqaga", callback_data="attendance_view_subjects")]]
         reply_markup = InlineKeyboardMarkup(keyboard)

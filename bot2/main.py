@@ -51,6 +51,7 @@ def main():
     app.add_handler(CallbackQueryHandler(view_group_attendance, pattern="^attendance_group1_"))
     app.add_handler(CallbackQueryHandler(view_subject_attendance, pattern="^attendance_subject_"))
 
+
     app.add_handler(CallbackQueryHandler(paginate_groups, pattern="^paginate1_groups_(previous|next)$"))
     app.add_handler(CallbackQueryHandler(paginate_subjects, pattern="^paginate2_subjects_(previous|next)$"))
 

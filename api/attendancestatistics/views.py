@@ -3,7 +3,9 @@ from api.attendancestatistics.filters import AttendanceFilter
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from apps.attendance.models import Attendance
-
+from apps.classschedule.models import ClassSchedule
+from apps.group.models import Group
+from django.db.models import Count, Q
 
 class AttendanceStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -33,3 +35,49 @@ class AttendanceStatisticsView(APIView):
             for attendance in data
         ]
         return Response(response_data, status=200)
+
+
+
+
+
+class GroupSubjectStatisticsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+        role = user.role
+        group_id = request.query_params.get('group_id', None)
+
+        # Guruh ID'si talab qilinadi
+        if not group_id:
+            return Response({"detail": "Guruh ID sini ko'rsatish kerak."}, status=400)
+
+        # Guruhni tekshirish
+        try:
+            group = Group.objects.get(id=group_id)
+        except Group.DoesNotExist:
+            return Response({"detail": "Guruh topilmadi."}, status=404)
+
+        # Rol bo‘yicha kirish huquqini tekshirish
+        if role == 'teacher' and not ClassSchedule.objects.filter(group=group, teacher=user).exists():
+            return Response({"detail": "Siz bu guruhga bog'liq emassiz."}, status=403)
+
+        if role not in ['admin', 'teacher']:
+            return Response({"detail": "Siz bu ma'lumotga ruxsatga ega emassiz."}, status=403)
+
+        # Fanlar bo‘yicha statistikani yig‘ish
+        subjects = ClassSchedule.objects.filter(group=group).values('subject__name').annotate(
+            total_classes=Count('id'),
+            total_present=Count('attendances', filter=Q(attendances__status='present')),
+            total_absent=Count('attendances', filter=Q(attendances__status='absent')),
+            reasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='reasoned')),
+            unreasoned_absences=Count('attendances', filter=Q(attendances__status='absent', attendances__reason='unreasoned'))
+        )
+
+        # Natijani shakllantirish
+        data = {
+            "group_name": group.name,
+            "subjects": list(subjects)
+        }
+
+        return Response(data)

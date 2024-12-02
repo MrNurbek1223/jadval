@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.classschedule',
     'apps.group',
     'apps.room',
+    'apps.semester'
 ]
 
 MIDDLEWARE = [
