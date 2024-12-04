@@ -32,7 +32,6 @@ def main():
         CallbackQueryHandler(paginate, pattern="^paginate_(teachers|groups|rooms|subject)_(next|previous)$"))
     app.add_handler(CallbackQueryHandler(attendance_handler, pattern="^attendance$"))
 
-
     app.add_handler(CallbackQueryHandler(search_handler, pattern="^search_(groups|teachers|rooms|subject)$"))
     app.add_handler(
         CallbackQueryHandler(clear_search_handler, pattern="^clear_search_(groups|teachers|rooms|subject)$"))
@@ -51,7 +50,6 @@ def main():
     app.add_handler(CallbackQueryHandler(view_subjects, pattern="^attendance_view_subjects$"))
     app.add_handler(CallbackQueryHandler(view_group_attendance, pattern="^attendance_group1_"))
     app.add_handler(CallbackQueryHandler(view_subject_attendance, pattern="^attendance_subject_"))
-
 
     app.add_handler(CallbackQueryHandler(paginate_groups, pattern="^paginate1_groups_(previous|next)$"))
     app.add_handler(CallbackQueryHandler(paginate_subjects, pattern="^paginate2_subjects_(previous|next)$"))

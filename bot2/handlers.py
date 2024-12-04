@@ -307,9 +307,7 @@ async def get_teacher_schedule(update, context):
 async def fetch_and_display_options(
         update, context: ContextTypes.DEFAULT_TYPE, endpoint, prompt, callback_prefix, page_url=None
 ):
-    """
-    Foydalanuvchiga tanlash uchun opsiyalarni ko'rsatadi va API orqali natijalarni olib keladi.
-    """
+
     query = update.callback_query if update.callback_query else None
     message = update.message if update.message else None
 
@@ -924,7 +922,6 @@ async def view_group_statistics(update, context: ContextTypes.DEFAULT_TYPE):
 async def paginate_group_stats(update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     callback_data = query.data
-    print(f"Debug: Received callback data -> {callback_data}")
 
     await query.answer()
 
